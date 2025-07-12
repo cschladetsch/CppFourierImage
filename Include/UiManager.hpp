@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 class ComplexImage;
 class RGBComplexImage;
@@ -28,6 +29,7 @@ public:
 private:
     void loadImage(const std::string& filepath);
     void updateVisualization();
+    void scanResourcesFolder();
 
     // Component references
     std::shared_ptr<ImageLoader> imageLoader_;
@@ -36,8 +38,8 @@ private:
     std::shared_ptr<Renderer> renderer_;
 
     // UI state
-    std::string currentFilePath_;
-    bool showFileDialog_ = false;
+    std::vector<std::string> availableImages_;
+    int selectedImageIndex_ = 0;
     bool imageLoaded_ = false;
     int imageWidth_ = 0;
     int imageHeight_ = 0;
@@ -55,9 +57,6 @@ private:
     bool showFrequencyCircles_ = true;
     bool showPhase_ = false;
 
-    // Animation
-    bool isAnimating_;
-    float animationSpeed_;
     
     // Processing parameters
     int maxImageSize_;

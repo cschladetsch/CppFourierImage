@@ -5,7 +5,6 @@
 #include "Renderer.hpp"
 #include "RgbComplexImage.hpp"
 #include <imgui.h>
-#include <imgui_stdlib.h>
 #include <iostream>
 #include <algorithm>
 #include <filesystem>
@@ -20,13 +19,10 @@ UIManager::UIManager(std::shared_ptr<ImageLoader> imageLoader,
       fourierTransform_(fourierTransform),
       visualizer_(visualizer),
       renderer_(renderer),
-      currentFilePath_("./Resources/1.jpg"),
       frequencyCount_(100),
       maxFrequencies_(50000),
       showOriginal_(true),
       showFourier_(true),
-      isAnimating_(false),
-      animationSpeed_(1.0f),
       maxImageSize_(maxImageSize) {
 }
 
@@ -34,49 +30,69 @@ UIManager::~UIManager() {
 }
 
 void UIManager::initialize() {
-    // Auto-load the default image
-    if (!currentFilePath_.empty()) {
-        loadImage(currentFilePath_);
+    // Scan for available images in Resources folder
+    scanResourcesFolder();
+    
+    // Auto-load the first image if available
+    if (!availableImages_.empty()) {
+        loadImage(availableImages_[0]);
+    }
+}
+
+void UIManager::scanResourcesFolder() {
+    availableImages_.clear();
+    
+    const std::string resourcesPath = "./Resources/";
+    
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(resourcesPath)) {
+            if (entry.is_regular_file()) {
+                std::string extension = entry.path().extension().string();
+                std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+                
+                // Check if it's a supported image format
+                if (extension == ".jpg" || extension == ".jpeg" || 
+                    extension == ".png" || extension == ".bmp" ||
+                    extension == ".gif" || extension == ".tiff" ||
+                    extension == ".tif") {
+                    availableImages_.push_back(entry.path().string());
+                }
+            }
+        }
+        
+        // Sort the files for consistent ordering
+        std::sort(availableImages_.begin(), availableImages_.end());
+    } catch (const std::exception& e) {
+        std::cerr << "Error scanning resources folder: " << e.what() << std::endl;
     }
 }
 
 void UIManager::update() {
-    // Main menu bar
-    if (ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("Open Image...", "Ctrl+O")) {
-                showFileDialog_ = true;
-            }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Exit", "Alt+F4")) {
-                // Handle exit
-            }
-            ImGui::EndMenu();
-        }
-        if (ImGui::BeginMenu("View")) {
-            ImGui::MenuItem("Show Original", nullptr, &showOriginal_);
-            ImGui::MenuItem("Show Fourier", nullptr, &showFourier_);
-            ImGui::EndMenu();
-        }
-        ImGui::EndMainMenuBar();
-    }
-
-    // Control panel
-    ImGui::Begin("Fourier Controls");
+    // Main control panel
+    ImGui::Begin("Fourier Transform Controls");
     
-    // File input
-    ImGui::Text("Image File:");
-    ImGui::InputText("##filepath", &currentFilePath_);
-    ImGui::SameLine();
-    if (ImGui::Button("Browse...")) {
-        showFileDialog_ = true;
+    // Image selector
+    if (!availableImages_.empty()) {
+        ImGui::Text("Select Image:");
+        ImGui::Separator();
+        
+        // Radio buttons for image selection
+        for (size_t i = 0; i < availableImages_.size(); ++i) {
+            std::string filename = std::filesystem::path(availableImages_[i]).filename().string();
+            bool isSelected = (static_cast<int>(i) == selectedImageIndex_);
+            
+            if (ImGui::RadioButton(filename.c_str(), isSelected)) {
+                if (static_cast<int>(i) != selectedImageIndex_) {
+                    selectedImageIndex_ = static_cast<int>(i);
+                    loadImage(availableImages_[selectedImageIndex_]);
+                }
+            }
+        }
+        
+        ImGui::Separator();
+    } else {
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No images found in Resources folder!");
     }
-    ImGui::SameLine();
-    if (ImGui::Button("Load") && !currentFilePath_.empty()) {
-        loadImage(currentFilePath_);
-    }
-
-    ImGui::Separator();
 
     // Frequency control with logarithmic scale
     ImGui::Text("Frequency Components:");
@@ -95,22 +111,22 @@ void UIManager::update() {
     }
     
     ImGui::Text("Using %d of %d frequencies", frequencyCount_, maxFrequencies_);
-    
-    // Animation controls
-    ImGui::Separator();
-    ImGui::Text("Animation:");
-    ImGui::Checkbox("Animate", &isAnimating_);
-    if (isAnimating_) {
-        ImGui::SliderFloat("Speed", &animationSpeed_, 0.1f, 5.0f);
-    }
 
     // Display options
     ImGui::Separator();
     ImGui::Text("Display Options:");
-    ImGui::Checkbox("Show Original Image", &showOriginal_);
-    ImGui::Checkbox("Show Fourier Reconstruction", &showFourier_);
-    ImGui::Checkbox("Show Frequency Circles", &showFrequencyCircles_);
-    ImGui::Checkbox("Show Phase Information", &showPhase_);
+    if (ImGui::Checkbox("Show Original Image", &showOriginal_)) {
+        renderer_->setShowOriginal(showOriginal_);
+    }
+    if (ImGui::Checkbox("Show Fourier Reconstruction", &showFourier_)) {
+        renderer_->setShowFourier(showFourier_);
+    }
+    if (ImGui::Checkbox("Show Frequency Circles", &showFrequencyCircles_)) {
+        renderer_->setShowFrequencyCircles(showFrequencyCircles_);
+    }
+    if (ImGui::Checkbox("Show Phase Information", &showPhase_)) {
+        renderer_->setShowPhase(showPhase_);
+    }
 
     ImGui::End();
 
@@ -126,45 +142,10 @@ void UIManager::update() {
         ImGui::Text("No image loaded");
     }
     ImGui::End();
-
-    // Handle file dialog
-    if (showFileDialog_) {
-        ImGui::Begin("Open Image", &showFileDialog_);
-        // Simple file browser would go here
-        // For now, just use the text input
-        ImGui::Text("Enter image path:");
-        ImGui::InputText("##filebrowser", &currentFilePath_);
-        if (ImGui::Button("Open")) {
-            loadImage(currentFilePath_);
-            showFileDialog_ = false;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
-            showFileDialog_ = false;
-        }
-        ImGui::End();
-    }
-
-    // Update animation
-    if (isAnimating_ && imageLoaded_) {
-        static float animTime = 0.0f;
-        animTime += ImGui::GetIO().DeltaTime * animationSpeed_;
-        int animFreq = (int)(animTime * 10.0f) % maxFrequencies_ + 1;
-        if (animFreq != frequencyCount_) {
-            frequencyCount_ = animFreq;
-            updateVisualization();
-        }
-    }
 }
 
 void UIManager::render() {
     // Rendering is handled by the Renderer class
-    if (imageLoaded_) {
-        renderer_->setShowOriginal(showOriginal_);
-        renderer_->setShowFourier(showFourier_);
-        renderer_->setShowFrequencyCircles(showFrequencyCircles_);
-        renderer_->setShowPhase(showPhase_);
-    }
 }
 
 void UIManager::handleInput() {
@@ -174,7 +155,6 @@ void UIManager::handleInput() {
 void UIManager::loadImage(const std::string& filepath) {
     try {
         if (imageLoader_->loadImage(filepath)) {
-            currentFilePath_ = filepath;
             imageLoaded_ = true;
             
             // Get RGB image
