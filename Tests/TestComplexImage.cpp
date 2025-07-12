@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "complex_image.h"
+#include "ComplexImage.hpp"
 #include <complex>
 #include <cmath>
 

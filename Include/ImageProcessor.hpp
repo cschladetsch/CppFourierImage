@@ -1,6 +1,6 @@
 #pragma once
 
-#include "complex_image.h"
+#include "ComplexImage.hpp"
 #include <vector>
 #include <cstdint>
 

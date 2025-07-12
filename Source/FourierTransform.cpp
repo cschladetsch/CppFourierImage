@@ -1,5 +1,6 @@
-#include "fourier_transform.h"
-#include "image_processor.h"
+#include "FourierTransform.hpp"
+#include "ImageProcessor.hpp"
+#include "RgbComplexImage.hpp"
 #include <cmath>
 #include <algorithm>
 #include <numeric>
@@ -192,7 +193,8 @@ std::vector<std::pair<int, int>> FourierTransform::getTopFrequencyIndices(const 
     std::vector<std::pair<int, int>> result;
     result.reserve(num_frequencies);
     
-    for (int i = 0; i < num_frequencies && i < magnitude_indices.size(); ++i) {
+    size_t limit = std::min(static_cast<size_t>(num_frequencies), magnitude_indices.size());
+    for (size_t i = 0; i < limit; ++i) {
         result.emplace_back(std::get<1>(magnitude_indices[i]), std::get<2>(magnitude_indices[i]));
     }
     
@@ -205,6 +207,29 @@ ComplexImage FourierTransform::keepTopFrequencies(const ComplexImage& frequency_
     
     for (const auto& [x, y] : top_indices) {
         result.at(x, y) = frequency_domain.at(x, y);
+    }
+    
+    return result;
+}
+
+RGBComplexImage FourierTransform::transformRGB2D(const RGBComplexImage& input, Direction direction) {
+    RGBComplexImage result(input.getWidth(), input.getHeight());
+    
+    // Transform each channel separately
+    for (int channel = 0; channel < 3; ++channel) {
+        ComplexImage transformed = transform2D(input.getChannel(channel), direction);
+        result.getChannel(channel) = transformed;
+    }
+    
+    return result;
+}
+
+RGBComplexImage FourierTransform::keepTopFrequenciesRGB(const RGBComplexImage& frequency_domain, int num_frequencies) {
+    RGBComplexImage result(frequency_domain.getWidth(), frequency_domain.getHeight());
+    
+    // Apply frequency filtering to each channel
+    for (int channel = 0; channel < 3; ++channel) {
+        result.getChannel(channel) = keepTopFrequencies(frequency_domain.getChannel(channel), num_frequencies);
     }
     
     return result;

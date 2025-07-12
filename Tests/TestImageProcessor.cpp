@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "image_processor.h"
-#include "complex_image.h"
+#include "ImageProcessor.hpp"
+#include "ComplexImage.hpp"
 #include <vector>
 #include <algorithm>
 

@@ -1,29 +1,31 @@
 set(TEST_SOURCES
-    test_main.cpp
-    test_fourier_transform.cpp
-    test_image_processor.cpp
-    test_complex_image.cpp
-    test_image_loader.cpp
-    test_fourier_visualizer.cpp
+    TestMain.cpp
+    TestFourierTransform.cpp
+    TestImageProcessor.cpp
+    TestComplexImage.cpp
+    TestImageLoader.cpp
+    TestFourierVisualizer.cpp
 )
 
 # Source files to test (excluding main.cpp and UI)
 set(SOURCE_FILES_TO_TEST
-    ${CMAKE_SOURCE_DIR}/src/fourier_transform.cpp
-    ${CMAKE_SOURCE_DIR}/src/image_processor.cpp
-    ${CMAKE_SOURCE_DIR}/src/complex_image.cpp
-    ${CMAKE_SOURCE_DIR}/src/image_loader.cpp
-    ${CMAKE_SOURCE_DIR}/src/fourier_visualizer.cpp
+    ${CMAKE_SOURCE_DIR}/Source/FourierTransform.cpp
+    ${CMAKE_SOURCE_DIR}/Source/ImageProcessor.cpp
+    ${CMAKE_SOURCE_DIR}/Source/ComplexImage.cpp
+    ${CMAKE_SOURCE_DIR}/Source/ImageLoader.cpp
+    ${CMAKE_SOURCE_DIR}/Source/FourierVisualizer.cpp
 )
 
 add_executable(fourier_tests ${TEST_SOURCES} ${SOURCE_FILES_TO_TEST})
 
 # Include directories
 target_include_directories(fourier_tests PRIVATE 
-    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/Include
     ${cimg_SOURCE_DIR}
-    ${FFTW3_INCLUDE_DIR}
 )
+if(FFTW3_INCLUDE_DIR)
+    target_include_directories(fourier_tests PRIVATE ${FFTW3_INCLUDE_DIR})
+endif()
 
 # Link libraries
 target_link_libraries(fourier_tests 

@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Set output directories
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/Bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/Bin)
+
 # Add FetchContent for dependencies
 include(FetchContent)
 
@@ -28,6 +33,8 @@ FetchContent_Declare(
     glfw
     GIT_REPOSITORY https://github.com/glfw/glfw.git
     GIT_TAG 3.3.9
+    GIT_SHALLOW TRUE
+    FETCHCONTENT_UPDATES_DISCONNECTED TRUE
 )
 
 # Fetch ImGui
@@ -35,6 +42,8 @@ FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     GIT_TAG v1.90.9
+    GIT_SHALLOW TRUE
+    FETCHCONTENT_UPDATES_DISCONNECTED TRUE
 )
 
 # Fetch CImg
@@ -42,12 +51,14 @@ FetchContent_Declare(
     cimg
     GIT_REPOSITORY https://github.com/dtschump/CImg.git
     GIT_TAG v.3.3.3
+    GIT_SHALLOW TRUE
+    FETCHCONTENT_UPDATES_DISCONNECTED TRUE
 )
 
 FetchContent_MakeAvailable(glfw imgui cimg)
 
 # Use local GLAD files
-set(GLAD_DIR ${CMAKE_SOURCE_DIR}/external)
+set(GLAD_DIR ${CMAKE_SOURCE_DIR}/External)
 add_library(glad STATIC ${GLAD_DIR}/glad/glad.c)
 target_include_directories(glad PUBLIC ${GLAD_DIR})
 
@@ -79,9 +90,11 @@ include_directories(
     ${imgui_SOURCE_DIR}/backends
     ${imgui_SOURCE_DIR}/misc/cpp
     ${cimg_SOURCE_DIR}
-    ${FFTW3_INCLUDE_DIR}
-    include
+    Include
 )
+if(FFTW3_INCLUDE_DIR)
+    include_directories(${FFTW3_INCLUDE_DIR})
+endif()
 if(PNG_FOUND)
     include_directories(${PNG_INCLUDE_DIRS})
 endif()
@@ -91,25 +104,27 @@ endif()
 
 # Source files
 set(SOURCES
-    src/main.cpp
-    src/fourier_transform.cpp
-    src/image_processor.cpp
-    src/renderer.cpp
-    src/ui_manager.cpp
-    src/fourier_visualizer.cpp
-    src/image_loader.cpp
-    src/complex_image.cpp
+    Source/Main.cpp
+    Source/FourierTransform.cpp
+    Source/ImageProcessor.cpp
+    Source/Renderer.cpp
+    Source/UiManager.cpp
+    Source/FourierVisualizer.cpp
+    Source/ImageLoader.cpp
+    Source/ComplexImage.cpp
+    Source/RgbComplexImage.cpp
 )
 
 # Header files
 set(HEADERS
-    include/fourier_transform.h
-    include/image_processor.h
-    include/renderer.h
-    include/ui_manager.h
-    include/complex_image.h
-    include/fourier_visualizer.h
-    include/image_loader.h
+    Include/FourierTransform.hpp
+    Include/ImageProcessor.hpp
+    Include/Renderer.hpp
+    Include/UiManager.hpp
+    Include/ComplexImage.hpp
+    Include/FourierVisualizer.hpp
+    Include/ImageLoader.hpp
+    Include/RgbComplexImage.hpp
 )
 
 # Main executable
@@ -167,5 +182,5 @@ if(BUILD_TESTS)
     )
     FetchContent_MakeAvailable(googletest)
     
-    add_subdirectory(tests)
+    add_subdirectory(Tests)
 endif()

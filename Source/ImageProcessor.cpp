@@ -1,6 +1,7 @@
-#include "image_processor.h"
+#include "ImageProcessor.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 
 ComplexImage ImageProcessor::padToPowerOfTwo(const ComplexImage& input) {
     size_t width = input.getWidth();
@@ -136,8 +137,8 @@ ComplexImage ImageProcessor::applyGaussianBlur(const ComplexImage& input, double
         for (size_t x = 0; x < width; ++x) {
             ComplexImage::Complex sum(0, 0);
             for (int k = 0; k < kernel_size; ++k) {
-                int sx = x + k - half_size;
-                if (sx >= 0 && sx < width) {
+                ptrdiff_t sx = static_cast<ptrdiff_t>(x) + k - half_size;
+                if (sx >= 0 && sx < static_cast<ptrdiff_t>(width)) {
                     sum += input.at(sx, y) * kernel[k];
                 }
             }
@@ -149,8 +150,8 @@ ComplexImage ImageProcessor::applyGaussianBlur(const ComplexImage& input, double
         for (size_t x = 0; x < width; ++x) {
             ComplexImage::Complex sum(0, 0);
             for (int k = 0; k < kernel_size; ++k) {
-                int sy = y + k - half_size;
-                if (sy >= 0 && sy < height) {
+                ptrdiff_t sy = static_cast<ptrdiff_t>(y) + k - half_size;
+                if (sy >= 0 && sy < static_cast<ptrdiff_t>(height)) {
                     sum += temp.at(x, sy) * kernel[k];
                 }
             }

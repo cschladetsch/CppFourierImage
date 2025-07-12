@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "fourier_transform.h"
-#include "complex_image.h"
+#include "FourierTransform.hpp"
+#include "ComplexImage.hpp"
 #include <vector>
 #include <complex>
 #include <cmath>

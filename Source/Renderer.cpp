@@ -1,6 +1,7 @@
-#include "renderer.h"
-#include "complex_image.h"
-#include "fourier_visualizer.h"
+#include "Renderer.hpp"
+#include "ComplexImage.hpp"
+#include "RgbComplexImage.hpp"
+#include "FourierVisualizer.hpp"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -55,11 +56,11 @@ void main() {
 )";
 
 Renderer::Renderer() 
-    : m_originalTexture(0), m_fourierTexture(0), m_shaderProgram(0),
-      m_vao(0), m_vbo(0), m_initialized(false),
-      m_showOriginal(true), m_showFourier(true),
-      m_showFrequencyCircles(false), m_showPhase(false),
-      m_imageWidth(0), m_imageHeight(0) {
+    : originalTexture_(0), fourierTexture_(0), shaderProgram_(0),
+      vao_(0), vbo_(0), initialized_(false),
+      showOriginal_(true), showFourier_(true),
+      showFrequencyCircles_(false), showPhase_(false),
+      imageWidth_(0), imageHeight_(0) {
 }
 
 Renderer::~Renderer() {
@@ -67,7 +68,7 @@ Renderer::~Renderer() {
 }
 
 void Renderer::initializeOpenGL() {
-    if (m_initialized) return;
+    if (initialized_) return;
     
     // Compile vertex shader
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -95,14 +96,14 @@ void Renderer::initializeOpenGL() {
     }
     
     // Create shader program
-    m_shaderProgram = glCreateProgram();
-    glAttachShader(m_shaderProgram, vertexShader);
-    glAttachShader(m_shaderProgram, fragmentShader);
-    glLinkProgram(m_shaderProgram);
+    shaderProgram_ = glCreateProgram();
+    glAttachShader(shaderProgram_, vertexShader);
+    glAttachShader(shaderProgram_, fragmentShader);
+    glLinkProgram(shaderProgram_);
     
-    glGetProgramiv(m_shaderProgram, GL_LINK_STATUS, &success);
+    glGetProgramiv(shaderProgram_, GL_LINK_STATUS, &success);
     if (!success) {
-        glGetProgramInfoLog(m_shaderProgram, 512, nullptr, infoLog);
+        glGetProgramInfoLog(shaderProgram_, 512, nullptr, infoLog);
         std::cerr << "Shader program linking failed: " << infoLog << std::endl;
     }
     
@@ -123,15 +124,15 @@ void Renderer::initializeOpenGL() {
         2, 3, 0
     };
     
-    glGenVertexArrays(1, &m_vao);
-    glGenBuffers(1, &m_vbo);
+    glGenVertexArrays(1, &vao_);
+    glGenBuffers(1, &vbo_);
     
     GLuint ebo;
     glGenBuffers(1, &ebo);
     
-    glBindVertexArray(m_vao);
+    glBindVertexArray(vao_);
     
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -147,22 +148,22 @@ void Renderer::initializeOpenGL() {
     
     glBindVertexArray(0);
     
-    m_initialized = true;
+    initialized_ = true;
 }
 
 void Renderer::createTextures() {
-    if (m_originalTexture == 0) {
-        glGenTextures(1, &m_originalTexture);
-        glBindTexture(GL_TEXTURE_2D, m_originalTexture);
+    if (originalTexture_ == 0) {
+        glGenTextures(1, &originalTexture_);
+        glBindTexture(GL_TEXTURE_2D, originalTexture_);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
     
-    if (m_fourierTexture == 0) {
-        glGenTextures(1, &m_fourierTexture);
-        glBindTexture(GL_TEXTURE_2D, m_fourierTexture);
+    if (fourierTexture_ == 0) {
+        glGenTextures(1, &fourierTexture_);
+        glBindTexture(GL_TEXTURE_2D, fourierTexture_);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -171,19 +172,19 @@ void Renderer::createTextures() {
 }
 
 void Renderer::updateTextures() {
-    if (!m_image) return;
+    if (!image_) return;
     
     createTextures();
     
-    int width = m_image->getWidth();
-    int height = m_image->getHeight();
+    int width = image_->getWidth();
+    int height = image_->getHeight();
     
     // Update original image texture
     std::vector<unsigned char> originalData(width * height * 4);
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             int idx = (y * width + x) * 4;
-            auto pixel = m_image->at(x, y);
+            auto pixel = image_->at(x, y);
             unsigned char value = static_cast<unsigned char>(pixel.real() * 255);
             originalData[idx] = value;
             originalData[idx + 1] = value;
@@ -192,16 +193,16 @@ void Renderer::updateTextures() {
         }
     }
     
-    glBindTexture(GL_TEXTURE_2D, m_originalTexture);
+    glBindTexture(GL_TEXTURE_2D, originalTexture_);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, originalData.data());
     
     // Update Fourier reconstruction texture
-    if (m_reconstructed) {
+    if (reconstructed_) {
         std::vector<unsigned char> fourierData(width * height * 4);
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 int idx = (y * width + x) * 4;
-                auto pixel = m_reconstructed->at(x, y);
+                auto pixel = reconstructed_->at(x, y);
                 unsigned char value = static_cast<unsigned char>(std::clamp(pixel.real() * 255, 0.0, 255.0));
                 fourierData[idx] = value;
                 fourierData[idx + 1] = value;
@@ -210,29 +211,79 @@ void Renderer::updateTextures() {
             }
         }
         
-        glBindTexture(GL_TEXTURE_2D, m_fourierTexture);
+        glBindTexture(GL_TEXTURE_2D, fourierTexture_);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, fourierData.data());
+    }
+}
+
+void Renderer::updateRGBTextures() {
+    if (!rgbImage_) return;
+    
+    createTextures();
+    
+    int width = rgbImage_->getWidth();
+    int height = rgbImage_->getHeight();
+    
+    // Update original RGB image texture
+    std::vector<uint32_t> rgbData = rgbImage_->toRGB();
+    std::vector<unsigned char> originalData(width * height * 4);
+    
+    for (int i = 0; i < width * height; ++i) {
+        uint32_t pixel = rgbData[i];
+        originalData[i * 4] = (pixel >> 24) & 0xFF;     // R
+        originalData[i * 4 + 1] = (pixel >> 16) & 0xFF; // G
+        originalData[i * 4 + 2] = (pixel >> 8) & 0xFF;  // B
+        originalData[i * 4 + 3] = 255;                  // A
+    }
+    
+    glBindTexture(GL_TEXTURE_2D, originalTexture_);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, originalData.data());
+    
+    // Update RGB Fourier reconstruction texture
+    if (rgbReconstructed_) {
+        std::vector<uint32_t> reconstructedRGB = rgbReconstructed_->toRGB();
+        std::vector<unsigned char> fourierData(width * height * 4);
+        
+        for (int i = 0; i < width * height; ++i) {
+            uint32_t pixel = reconstructedRGB[i];
+            fourierData[i * 4] = (pixel >> 24) & 0xFF;     // R
+            fourierData[i * 4 + 1] = (pixel >> 16) & 0xFF; // G
+            fourierData[i * 4 + 2] = (pixel >> 8) & 0xFF;  // B
+            fourierData[i * 4 + 3] = 255;                  // A
+        }
+        
+        glBindTexture(GL_TEXTURE_2D, fourierTexture_);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, fourierData.data());
     }
 }
 
 void Renderer::render(int width, int height) {
-    if (!m_initialized) {
+    if (!initialized_) {
         initializeOpenGL();
     }
     
-    if (!m_image) return;
+    if (!image_ && !rgbImage_) return;
     
     // Update reconstructed image from visualizer
-    if (m_visualizer) {
+    if (visualizer_) {
         try {
-            auto reconstructed = m_visualizer->getReconstructedImage();
-            m_reconstructed = std::make_shared<ComplexImage>(reconstructed);
+            if (isRGB_) {
+                auto reconstructed = visualizer_->getReconstructedRGBImage();
+                rgbReconstructed_ = std::make_shared<RGBComplexImage>(reconstructed);
+            } else {
+                auto reconstructed = visualizer_->getReconstructedImage();
+                reconstructed_ = std::make_shared<ComplexImage>(reconstructed);
+            }
         } catch (const std::exception& e) {
             std::cerr << "Error getting reconstructed image: " << e.what() << std::endl;
         }
     }
     
-    updateTextures();
+    if (isRGB_) {
+        updateRGBTextures();
+    } else {
+        updateTextures();
+    }
     
     // Save current OpenGL state
     GLint last_viewport[4];
@@ -244,12 +295,12 @@ void Renderer::render(int width, int height) {
     
     // Calculate layout
     float padding = 20.0f;
-    float imageAspect = (float)m_imageWidth / m_imageHeight;
+    float imageAspect = (float)imageWidth_ / imageHeight_;
     float availableWidth = width - 3 * padding;
     float availableHeight = height - 2 * padding;
     
     float imageWidth, imageHeight;
-    int numImages = (m_showOriginal ? 1 : 0) + (m_showFourier ? 1 : 0);
+    int numImages = (showOriginal_ ? 1 : 0) + (showFourier_ ? 1 : 0);
     
     if (numImages > 0) {
         imageWidth = availableWidth / numImages - padding;
@@ -262,18 +313,18 @@ void Renderer::render(int width, int height) {
         
         float currentX = padding;
         
-        if (m_showOriginal) {
-            renderImage(m_originalTexture, currentX, padding, imageWidth, imageHeight);
+        if (showOriginal_) {
+            renderImage(originalTexture_, currentX, padding, imageWidth, imageHeight);
             currentX += imageWidth + padding;
         }
         
-        if (m_showFourier && m_fourierTexture) {
-            renderImage(m_fourierTexture, currentX, padding, imageWidth, imageHeight);
+        if (showFourier_ && fourierTexture_) {
+            renderImage(fourierTexture_, currentX, padding, imageWidth, imageHeight);
         }
     }
     
     // Render frequency visualization lines
-    if (m_showFrequencyCircles && m_visualizer) {
+    if (showFrequencyCircles_ && visualizer_) {
         renderFrequencyLines();
     }
     
@@ -282,7 +333,7 @@ void Renderer::render(int width, int height) {
 }
 
 void Renderer::renderImage(GLuint texture, float x, float y, float width, float height) {
-    glUseProgram(m_shaderProgram);
+    glUseProgram(shaderProgram_);
     
     // Convert to normalized device coordinates
     GLint viewport[4];
@@ -301,8 +352,8 @@ void Renderer::renderImage(GLuint texture, float x, float y, float width, float 
         ndcX,         ndcY,         0.0f, 0.0f
     };
     
-    glBindVertexArray(m_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    glBindVertexArray(vao_);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
     
     glActiveTexture(GL_TEXTURE0);
@@ -315,7 +366,7 @@ void Renderer::renderImage(GLuint texture, float x, float y, float width, float 
 }
 
 void Renderer::renderFrequencyLines() {
-    if (!m_visualizer) return;
+    if (!visualizer_) return;
     
     // TODO: implement getVisualizationLines in visualizer
     return;
@@ -365,7 +416,7 @@ void Renderer::renderFrequencyLines() {
     glBindBuffer(GL_ARRAY_BUFFER, lineVBO);
     
     // Draw each line
-    GLuint colorLoc = glGetUniformLocation(lineShader, "lineColor");
+    // GLuint colorLoc = glGetUniformLocation(lineShader, "lineColor");
     
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -398,21 +449,31 @@ void Renderer::renderFrequencyLines() {
 }
 
 void Renderer::setImage(std::shared_ptr<ComplexImage> image) {
-    m_image = image;
+    image_ = image;
+    isRGB_ = false;
     if (image) {
-        m_imageWidth = image->getWidth();
-        m_imageHeight = image->getHeight();
+        imageWidth_ = image->getWidth();
+        imageHeight_ = image->getHeight();
+    }
+}
+
+void Renderer::setRGBImage(std::shared_ptr<RGBComplexImage> image) {
+    rgbImage_ = image;
+    isRGB_ = true;
+    if (image) {
+        imageWidth_ = image->getWidth();
+        imageHeight_ = image->getHeight();
     }
 }
 
 void Renderer::setVisualizer(std::shared_ptr<FourierVisualizer> visualizer) {
-    m_visualizer = visualizer;
+    visualizer_ = visualizer;
 }
 
 void Renderer::cleanup() {
-    if (m_originalTexture) glDeleteTextures(1, &m_originalTexture);
-    if (m_fourierTexture) glDeleteTextures(1, &m_fourierTexture);
-    if (m_shaderProgram) glDeleteProgram(m_shaderProgram);
-    if (m_vao) glDeleteVertexArrays(1, &m_vao);
-    if (m_vbo) glDeleteBuffers(1, &m_vbo);
+    if (originalTexture_) glDeleteTextures(1, &originalTexture_);
+    if (fourierTexture_) glDeleteTextures(1, &fourierTexture_);
+    if (shaderProgram_) glDeleteProgram(shaderProgram_);
+    if (vao_) glDeleteVertexArrays(1, &vao_);
+    if (vbo_) glDeleteBuffers(1, &vbo_);
 }

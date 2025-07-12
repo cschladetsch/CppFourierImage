@@ -1,4 +1,4 @@
-#include "complex_image.h"
+#include "ComplexImage.hpp"
 #include <algorithm>
 #include <cmath>
 

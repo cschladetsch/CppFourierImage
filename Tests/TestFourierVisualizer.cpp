@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "fourier_visualizer.h"
-#include "complex_image.h"
+#include "FourierVisualizer.hpp"
+#include "ComplexImage.hpp"
 #include <memory>
 
 class FourierVisualizerTest : public ::testing::Test {

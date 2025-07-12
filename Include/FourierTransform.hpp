@@ -1,6 +1,7 @@
 #pragma once
 
-#include "complex_image.h"
+#include "ComplexImage.hpp"
+#include "RgbComplexImage.hpp"
 #include <memory>
 #include <span>
 
@@ -16,9 +17,15 @@ public:
     
     ComplexImage transform2D(const ComplexImage& input, Direction direction = Direction::Forward);
     
+    // RGB version - transforms each channel separately
+    RGBComplexImage transformRGB2D(const RGBComplexImage& input, Direction direction = Direction::Forward);
+    
     ComplexImage applyFrequencyMask(const ComplexImage& frequency_domain, double frequency_cutoff, bool low_pass = true);
     ComplexImage applyFrequencyMaskCircular(const ComplexImage& frequency_domain, double radius_ratio);
     ComplexImage keepTopFrequencies(const ComplexImage& frequency_domain, int num_frequencies);
+    
+    // RGB versions
+    RGBComplexImage keepTopFrequenciesRGB(const RGBComplexImage& frequency_domain, int num_frequencies);
     
     std::vector<std::pair<int, int>> getTopFrequencyIndices(const ComplexImage& frequency_domain, int num_frequencies);
     

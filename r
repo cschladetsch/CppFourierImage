@@ -48,7 +48,10 @@ while [[ $# -gt 0 ]]; do
             echo "  -h, --help          Show this help message"
             echo ""
             echo "Arguments after -- are passed to the application"
-            echo "Example: ./r -d -- image.png"
+            echo "Example: ./r -d -- --size 1024"
+            echo ""
+            echo "Application options:"
+            echo "  --size N    Set maximum image size for processing (default: 512)"
             exit 0
             ;;
         --)
@@ -87,8 +90,8 @@ if [ $BUILD_ONLY -eq 1 ]; then
 fi
 
 # Check if executable exists
-if [ ! -f "build/fourier_viewer" ]; then
-    echo -e "${RED}Error: Executable not found at build/fourier_viewer${NC}"
+if [ ! -f "Bin/fourier_viewer" ]; then
+    echo -e "${RED}Error: Executable not found at Bin/fourier_viewer${NC}"
     echo -e "${YELLOW}Try running without --no-build option${NC}"
     exit 1
 fi
@@ -116,21 +119,15 @@ echo -e "${BLUE}Running CppFourier...${NC}"
 echo -e "${YELLOW}Arguments: $APP_ARGS${NC}"
 echo "----------------------------------------"
 
-# Change to build directory to run
-cd build || exit 1
-
-# Run with or without arguments
+# Run with or without arguments from Bin directory
 if [ -z "$APP_ARGS" ]; then
-    ./fourier_viewer
+    ./Bin/fourier_viewer
 else
-    ./fourier_viewer $APP_ARGS
+    ./Bin/fourier_viewer $APP_ARGS
 fi
 
 # Capture exit code
 EXIT_CODE=$?
-
-# Return to original directory
-cd ..
 
 # Report exit status
 if [ $EXIT_CODE -eq 0 ]; then

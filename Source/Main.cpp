@@ -6,13 +6,35 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-#include "image_loader.h"
-#include "fourier_transform.h"
-#include "fourier_visualizer.h"
-#include "renderer.h"
-#include "ui_manager.h"
+#include "ImageLoader.hpp"
+#include "FourierTransform.hpp"
+#include "FourierVisualizer.hpp"
+#include "Renderer.hpp"
+#include "UiManager.hpp"
 
 int main(int argc, char* argv[]) {
+    // Parse command line arguments
+    int maxImageSize = 512;  // Default size
+    
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if ((arg == "--size" || arg == "-s") && i + 1 < argc) {
+            maxImageSize = std::atoi(argv[++i]);
+            if (maxImageSize <= 0 || maxImageSize > 2048) {
+                std::cerr << "Invalid size. Using default 512. Valid range: 1-2048\n";
+                maxImageSize = 512;
+            }
+        } else if (arg == "--help" || arg == "-h") {
+            std::cout << "Usage: " << argv[0] << " [options]\n";
+            std::cout << "Options:\n";
+            std::cout << "  -s, --size <N>    Set maximum image size for processing (default: 512)\n";
+            std::cout << "  -h, --help        Show this help message\n";
+            return 0;
+        }
+    }
+    
+    std::cout << "Maximum image processing size: " << maxImageSize << "x" << maxImageSize << "\n";
+    
     // Initialize GLFW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW\n";
@@ -63,7 +85,10 @@ int main(int argc, char* argv[]) {
     auto fourierTransform = std::make_shared<FourierTransform>();
     auto visualizer = std::make_shared<FourierVisualizer>();
     auto renderer = std::make_shared<Renderer>();
-    auto uiManager = std::make_unique<UIManager>(imageLoader, fourierTransform, visualizer, renderer);
+    auto uiManager = std::make_unique<UIManager>(imageLoader, fourierTransform, visualizer, renderer, maxImageSize);
+    
+    // Initialize UI Manager (auto-loads default image)
+    uiManager->initialize();
 
     // Clear color
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);

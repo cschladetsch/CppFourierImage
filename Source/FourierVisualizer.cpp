@@ -1,8 +1,8 @@
-#include "fourier_visualizer.h"
-#include "fourier_transform.h"
+#include "FourierVisualizer.hpp"
+#include "FourierTransform.hpp"
 #include <algorithm>
 
-FourierVisualizer::FourierVisualizer() = default;
+FourierVisualizer::FourierVisualizer() : fourier_transform_(std::make_shared<FourierTransform>()) {}
 FourierVisualizer::~FourierVisualizer() = default;
 
 void FourierVisualizer::setImage(const ComplexImage& frequency_domain) {
@@ -10,15 +10,31 @@ void FourierVisualizer::setImage(const ComplexImage& frequency_domain) {
     animation_state_.active_frequencies.clear();
     animation_state_.current_frequency_count = 0;
     animation_state_.time_accumulator = 0.0f;
+    animation_state_.is_rgb = false;
     
     // Initialize with an empty reconstruction
     animation_state_.reconstructed_image = ComplexImage(frequency_domain.getWidth(), frequency_domain.getHeight());
 }
 
+void FourierVisualizer::setRGBImage(const RGBComplexImage& frequency_domain) {
+    rgb_frequency_domain_ = frequency_domain;
+    animation_state_.active_frequencies.clear();
+    animation_state_.current_frequency_count = 0;
+    animation_state_.time_accumulator = 0.0f;
+    animation_state_.is_rgb = true;
+    
+    // Initialize with an empty RGB reconstruction
+    animation_state_.reconstructed_rgb_image = RGBComplexImage(frequency_domain.getWidth(), frequency_domain.getHeight());
+}
+
 void FourierVisualizer::setFrequencyCount(int count) {
     if (count != animation_state_.current_frequency_count) {
         animation_state_.current_frequency_count = count;
-        reconstructFromFrequencies();
+        if (animation_state_.is_rgb) {
+            reconstructRGBFromFrequencies();
+        } else {
+            reconstructFromFrequencies();
+        }
     }
 }
 
@@ -33,10 +49,6 @@ void FourierVisualizer::updateAnimation(float delta_time) {
     if (target_count != animation_state_.current_frequency_count) {
         setFrequencyCount(target_count);
     }
-}
-
-ComplexImage FourierVisualizer::getReconstructedImage() const {
-    return animation_state_.reconstructed_image;
 }
 
 void FourierVisualizer::reconstructFromFrequencies() {
@@ -74,4 +86,24 @@ std::vector<std::pair<float, float>> FourierVisualizer::getFrequencyPath() const
     }
     
     return path;
+}
+
+ComplexImage FourierVisualizer::getReconstructedImage() const {
+    return animation_state_.reconstructed_image;
+}
+
+RGBComplexImage FourierVisualizer::getReconstructedRGBImage() const {
+    return animation_state_.reconstructed_rgb_image;
+}
+
+void FourierVisualizer::reconstructRGBFromFrequencies() {
+    if (!fourier_transform_) return;
+    
+    // Keep top frequencies for each channel
+    RGBComplexImage filtered = fourier_transform_->keepTopFrequenciesRGB(rgb_frequency_domain_, 
+                                                                         animation_state_.current_frequency_count);
+    
+    // Inverse transform to get spatial domain
+    animation_state_.reconstructed_rgb_image = fourier_transform_->transformRGB2D(filtered, 
+                                                                                 FourierTransform::Direction::Inverse);
 }

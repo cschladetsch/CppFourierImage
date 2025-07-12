@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "image_loader.h"
-#include "complex_image.h"
+#include "ImageLoader.hpp"
+#include "ComplexImage.hpp"
 #include <fstream>
 #include <cstdio>
 
