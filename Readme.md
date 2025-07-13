@@ -2,6 +2,10 @@
 
 A cutting-edge C++23 application that demonstrates advanced Fourier transform concepts through interactive image analysis. This tool performs 2D Discrete Fourier Transform (DFT) decomposition on RGB images, allowing users to visualize how complex images can be reconstructed from sinusoidal frequency components.
 
+## Demo
+
+![Demo](/Resources/Demo.gif)
+
 ## What Actually Happens
 
 When you load an image into CppFourier, the application performs the following mathematical operations:

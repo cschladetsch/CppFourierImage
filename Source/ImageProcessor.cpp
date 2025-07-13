@@ -51,35 +51,35 @@ std::vector<uint8_t> ImageProcessor::normalizeToUint8(const std::vector<double>&
     if (range < 1e-10) range = 1.0;
     
     std::transform(data.begin(), data.end(), result.begin(),
-                   [min_val, range](double val) {
-                       double normalized = (val - min_val) / range;
+                   [min_val, range](Scalar val) {
+                       Scalar normalized = (val - min_val) / range;
                        return static_cast<uint8_t>(std::clamp(normalized * 255.0, 0.0, 255.0));
                    });
     
     return result;
 }
 
-std::vector<float> ImageProcessor::normalizeToFloat(const std::vector<double>& data) {
-    std::vector<float> result(data.size());
+std::vector<Scalar> ImageProcessor::normalizeToFloat(const std::vector<Scalar>& data) {
+    std::vector<Scalar> result(data.size());
     
     auto [min_it, max_it] = std::minmax_element(data.begin(), data.end());
-    double min_val = *min_it;
-    double max_val = *max_it;
-    double range = max_val - min_val;
+    Scalar min_val = *min_it;
+    Scalar max_val = *max_it;
+    Scalar range = max_val - min_val;
     
     if (range < 1e-10) range = 1.0;
     
     std::transform(data.begin(), data.end(), result.begin(),
-                   [min_val, range](double val) {
+                   [min_val, range](Scalar val) {
                        return static_cast<float>((val - min_val) / range);
                    });
     
     return result;
 }
 
-void ImageProcessor::applyLogScale(std::vector<double>& magnitude_data) {
+void ImageProcessor::applyLogScale(std::vector<Scalar>& magnitude_data) {
     std::transform(magnitude_data.begin(), magnitude_data.end(), magnitude_data.begin(),
-                   [](double val) { return std::log10(1.0 + val); });
+                   [](Scalar val) { return std::log10(Scalar(1.0) + val); });
 }
 
 void ImageProcessor::applyColorMap(const std::vector<uint8_t>& grayscale, std::vector<uint8_t>& rgb_output) {
@@ -87,7 +87,7 @@ void ImageProcessor::applyColorMap(const std::vector<uint8_t>& grayscale, std::v
     
     for (size_t i = 0; i < grayscale.size(); ++i) {
         uint8_t val = grayscale[i];
-        float t = val / 255.0f;
+        Scalar t = val / Scalar(255.0);
         
         uint8_t r, g, b;
         if (t < 0.25f) {
@@ -114,7 +114,7 @@ void ImageProcessor::applyColorMap(const std::vector<uint8_t>& grayscale, std::v
     }
 }
 
-ComplexImage ImageProcessor::applyGaussianBlur(const ComplexImage& input, double sigma) {
+ComplexImage ImageProcessor::applyGaussianBlur(const ComplexImage& input, Scalar sigma) {
     size_t width = input.getWidth();
     size_t height = input.getHeight();
     ComplexImage result(width, height);
@@ -123,8 +123,8 @@ ComplexImage ImageProcessor::applyGaussianBlur(const ComplexImage& input, double
     if (kernel_size % 2 == 0) kernel_size++;
     int half_size = kernel_size / 2;
     
-    std::vector<double> kernel(kernel_size);
-    double sum = 0.0;
+    std::vector<Scalar> kernel(kernel_size);
+    Scalar sum = 0.0;
     for (int i = 0; i < kernel_size; ++i) {
         int x = i - half_size;
         kernel[i] = std::exp(-(x * x) / (2 * sigma * sigma));
@@ -182,7 +182,7 @@ ComplexImage ImageProcessor::applyEdgeDetection(const ComplexImage& input) {
                 }
             }
             
-            double magnitude = std::sqrt(std::norm(gx) + std::norm(gy));
+            Scalar magnitude = std::sqrt(std::norm(gx) + std::norm(gy));
             result.at(x, y) = ComplexImage::Complex(magnitude, 0);
         }
     }
