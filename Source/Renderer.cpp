@@ -7,6 +7,10 @@
 #include <cmath>
 #include <vector>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 const char* vertexShaderSource = R"(
 #version 330 core
 layout (location = 0) in vec2 aPos;
@@ -33,33 +37,10 @@ void main() {
 }
 )";
 
-const char* lineVertexShaderSource = R"(
-#version 330 core
-layout (location = 0) in vec2 aPos;
-
-uniform mat4 projection;
-
-void main() {
-    gl_Position = projection * vec4(aPos, 0.0, 1.0);
-}
-)";
-
-const char* lineFragmentShaderSource = R"(
-#version 330 core
-out vec4 FragColor;
-
-uniform vec4 lineColor;
-
-void main() {
-    FragColor = lineColor;
-}
-)";
 
 Renderer::Renderer() 
     : originalTexture_(0), fourierTexture_(0), shaderProgram_(0),
       vao_(0), vbo_(0), initialized_(false),
-      showOriginal_(true), showFourier_(true),
-      showFrequencyCircles_(false), showPhase_(false),
       imageWidth_(0), imageHeight_(0) {
 }
 
@@ -293,40 +274,34 @@ void Renderer::render(int width, int height) {
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     
-    // Calculate layout
+    // Calculate layout - always show both images
     float padding = 20.0f;
     float imageAspect = (float)imageWidth_ / imageHeight_;
     float availableWidth = width - 3 * padding;
     float availableHeight = height - 2 * padding;
     
     float imageWidth, imageHeight;
-    int numImages = (showOriginal_ ? 1 : 0) + (showFourier_ ? 1 : 0);
+    int numImages = 2; // Always show both original and Fourier reconstruction
     
-    if (numImages > 0) {
-        imageWidth = availableWidth / numImages - padding;
-        imageHeight = imageWidth / imageAspect;
-        
-        if (imageHeight > availableHeight) {
-            imageHeight = availableHeight;
-            imageWidth = imageHeight * imageAspect;
-        }
-        
-        float currentX = padding;
-        
-        if (showOriginal_) {
-            renderImage(originalTexture_, currentX, padding, imageWidth, imageHeight);
-            currentX += imageWidth + padding;
-        }
-        
-        if (showFourier_ && fourierTexture_) {
-            renderImage(fourierTexture_, currentX, padding, imageWidth, imageHeight);
-        }
+    imageWidth = availableWidth / numImages - padding;
+    imageHeight = imageWidth / imageAspect;
+    
+    if (imageHeight > availableHeight) {
+        imageHeight = availableHeight;
+        imageWidth = imageHeight * imageAspect;
     }
     
-    // Render frequency visualization lines
-    if (showFrequencyCircles_ && visualizer_) {
-        renderFrequencyLines();
+    float currentX = padding;
+    
+    // Always render original image
+    renderImage(originalTexture_, currentX, padding, imageWidth, imageHeight);
+    currentX += imageWidth + padding;
+    
+    // Always render Fourier reconstruction if available
+    if (fourierTexture_) {
+        renderImage(fourierTexture_, currentX, padding, imageWidth, imageHeight);
     }
+    
     
     // Restore viewport
     glViewport(last_viewport[0], last_viewport[1], last_viewport[2], last_viewport[3]);
@@ -365,88 +340,6 @@ void Renderer::renderImage(GLuint texture, float x, float y, float width, float 
     glUseProgram(0);
 }
 
-void Renderer::renderFrequencyLines() {
-    if (!visualizer_) return;
-    
-    // TODO: implement getVisualizationLines in visualizer
-    return;
-    
-    // Create line shader if not exists
-    static GLuint lineShader = 0;
-    if (lineShader == 0) {
-        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, 1, &lineVertexShaderSource, nullptr);
-        glCompileShader(vertexShader);
-        
-        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, 1, &lineFragmentShaderSource, nullptr);
-        glCompileShader(fragmentShader);
-        
-        lineShader = glCreateProgram();
-        glAttachShader(lineShader, vertexShader);
-        glAttachShader(lineShader, fragmentShader);
-        glLinkProgram(lineShader);
-        
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-    }
-    
-    glUseProgram(lineShader);
-    
-    // Set up projection matrix
-    GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
-    
-    float projection[16] = {
-        2.0f/viewport[2], 0.0f, 0.0f, 0.0f,
-        0.0f, -2.0f/viewport[3], 0.0f, 0.0f,
-        0.0f, 0.0f, -1.0f, 0.0f,
-        -1.0f, 1.0f, 0.0f, 1.0f
-    };
-    
-    GLuint projLoc = glGetUniformLocation(lineShader, "projection");
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, projection);
-    
-    // Create VAO/VBO for lines
-    GLuint lineVAO, lineVBO;
-    glGenVertexArrays(1, &lineVAO);
-    glGenBuffers(1, &lineVBO);
-    
-    glBindVertexArray(lineVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, lineVBO);
-    
-    // Draw each line
-    // GLuint colorLoc = glGetUniformLocation(lineShader, "lineColor");
-    
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // glLineWidth(2.0f); // Not in core profile
-    
-    // TODO: Draw frequency lines when getVisualizationLines is implemented
-    /*
-    for (const auto& line : lines) {
-        float vertices[] = {
-            line.start.x, line.start.y,
-            line.end.x, line.end.y
-        };
-        
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-        
-        // Set color based on intensity
-        glUniform4f(colorLoc, 1.0f, 1.0f, 1.0f, line.intensity);
-        glDrawArrays(GL_LINES, 0, 2);
-    }
-    */
-    
-    glDisable(GL_BLEND);
-    
-    // Cleanup
-    glDeleteVertexArrays(1, &lineVAO);
-    glDeleteBuffers(1, &lineVBO);
-    glUseProgram(0);
-}
 
 void Renderer::setImage(std::shared_ptr<ComplexImage> image) {
     image_ = image;
@@ -469,6 +362,7 @@ void Renderer::setRGBImage(std::shared_ptr<RGBComplexImage> image) {
 void Renderer::setVisualizer(std::shared_ptr<FourierVisualizer> visualizer) {
     visualizer_ = visualizer;
 }
+
 
 void Renderer::cleanup() {
     if (originalTexture_) glDeleteTextures(1, &originalTexture_);

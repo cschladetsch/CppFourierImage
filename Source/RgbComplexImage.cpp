@@ -1,14 +1,14 @@
 #include "RgbComplexImage.hpp"
 #include <algorithm>
 
-RGBComplexImage::RGBComplexImage(size_t width, size_t height) 
+RGBComplexImage::RGBComplexImage(Scalar width, Scalar height) 
     : width_(width), height_(height) {
     for (auto& channel : channels_) {
         channel.resize(width, height);
     }
 }
 
-void RGBComplexImage::setFromRGB(const std::vector<uint32_t>& rgbData, size_t width, size_t height) {
+void RGBComplexImage::setFromRGB(const std::vector<uint32_t>& rgbData, Scalar width, Scalar height) {
     width_ = width;
     height_ = height;
     
@@ -26,9 +26,9 @@ void RGBComplexImage::setFromRGB(const std::vector<uint32_t>& rgbData, size_t wi
             uint8_t b = (pixel >> 8) & 0xFF;
             
             // Normalize to [0, 1] and store in complex form
-            channels_[0].at(x, y) = std::complex<double>(r / 255.0, 0.0);
-            channels_[1].at(x, y) = std::complex<double>(g / 255.0, 0.0);
-            channels_[2].at(x, y) = std::complex<double>(b / 255.0, 0.0);
+            channels_[0].at(x, y) = Complex(r / 255.0, 0.0);
+            channels_[1].at(x, y) = Complex(g / 255.0, 0.0);
+            channels_[2].at(x, y) = Complex(b / 255.0, 0.0);
         }
     }
 }
@@ -39,9 +39,9 @@ std::vector<uint32_t> RGBComplexImage::toRGB() const {
     for (size_t y = 0; y < height_; ++y) {
         for (size_t x = 0; x < width_; ++x) {
             // Get real parts and clamp to [0, 1]
-            double r = std::clamp(channels_[0].at(x, y).real(), 0.0, 1.0);
-            double g = std::clamp(channels_[1].at(x, y).real(), 0.0, 1.0);
-            double b = std::clamp(channels_[2].at(x, y).real(), 0.0, 1.0);
+            Scalar r = std::clamp(channels_[0].at(x, y).real(), 0.0, 1.0);
+            Scalar g = std::clamp(channels_[1].at(x, y).real(), 0.0, 1.0);
+            Scalar b = std::clamp(channels_[2].at(x, y).real(), 0.0, 1.0);
             
             // Convert to 8-bit and pack
             uint8_t r8 = static_cast<uint8_t>(r * 255);
@@ -58,8 +58,8 @@ std::vector<uint32_t> RGBComplexImage::toRGB() const {
     return rgbData;
 }
 
-std::array<std::vector<double>, 3> RGBComplexImage::getMagnitudeImages() const {
-    std::array<std::vector<double>, 3> magnitudes;
+std::array<std::vector<Scalar>, 3> RGBComplexImage::getMagnitudeImages() const {
+    std::array<std::vector<Scalar>, 3> magnitudes;
     
     for (int i = 0; i < 3; ++i) {
         magnitudes[i] = channels_[i].getMagnitudeImage();

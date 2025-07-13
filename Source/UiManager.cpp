@@ -9,20 +9,22 @@
 #include <algorithm>
 #include <filesystem>
 #include <cmath>
+#include <ranges>
+#include <string_view>
+#include <array>
+#include <execution>
 
 UIManager::UIManager(std::shared_ptr<ImageLoader> imageLoader,
                      std::shared_ptr<FourierTransform> fourierTransform,
                      std::shared_ptr<FourierVisualizer> visualizer,
                      std::shared_ptr<Renderer> renderer,
-                     int maxImageSize)
+                     size_t maxImageSize)
     : imageLoader_(imageLoader),
       fourierTransform_(fourierTransform),
       visualizer_(visualizer),
       renderer_(renderer),
-      frequencyCount_(100),
-      maxFrequencies_(50000),
-      showOriginal_(true),
-      showFourier_(true),
+      frequencyCount_(100uz),
+      maxFrequencies_(50000uz),
       maxImageSize_(maxImageSize) {
 }
 
@@ -30,6 +32,7 @@ UIManager::~UIManager() {
 }
 
 void UIManager::initialize() {
+    
     // Scan for available images in Resources folder
     scanResourcesFolder();
     
@@ -42,26 +45,36 @@ void UIManager::initialize() {
 void UIManager::scanResourcesFolder() {
     availableImages_.clear();
     
-    const std::string resourcesPath = "./Resources/";
+    constexpr std::string_view resourcesPath = "./Resources/";
+    
+    // Define supported extensions using a constexpr array
+    constexpr std::array<std::string_view, 7> supportedExtensions{
+        ".jpg", ".jpeg", ".png", ".bmp", 
+        ".gif", ".tiff", ".tif"
+    };
     
     try {
-        for (const auto& entry : std::filesystem::directory_iterator(resourcesPath)) {
+        // Use C++23 ranges to filter and process directory entries
+        auto entries = std::filesystem::directory_iterator(resourcesPath);
+        
+        std::vector<std::string> imageFiles;
+        
+        for (const auto& entry : entries) {
             if (entry.is_regular_file()) {
-                std::string extension = entry.path().extension().string();
-                std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+                auto path = entry.path();
+                auto extension = path.extension().string();
+                std::ranges::transform(extension, extension.begin(), ::tolower);
                 
-                // Check if it's a supported image format
-                if (extension == ".jpg" || extension == ".jpeg" || 
-                    extension == ".png" || extension == ".bmp" ||
-                    extension == ".gif" || extension == ".tiff" ||
-                    extension == ".tif") {
-                    availableImages_.push_back(entry.path().string());
+                if (std::ranges::find(supportedExtensions, extension) != supportedExtensions.end()) {
+                    imageFiles.push_back(path.string());
                 }
             }
         }
         
-        // Sort the files for consistent ordering
-        std::sort(availableImages_.begin(), availableImages_.end());
+        // Sort for consistent ordering
+        std::ranges::sort(imageFiles);
+        availableImages_ = std::move(imageFiles);
+        
     } catch (const std::exception& e) {
         std::cerr << "Error scanning resources folder: " << e.what() << std::endl;
     }
@@ -76,18 +89,20 @@ void UIManager::update() {
         ImGui::Text("Select Image:");
         ImGui::Separator();
         
-        // Radio buttons for image selection
-        for (size_t i = 0; i < availableImages_.size(); ++i) {
-            std::string filename = std::filesystem::path(availableImages_[i]).filename().string();
-            bool isSelected = (static_cast<int>(i) == selectedImageIndex_);
+        // Radio buttons for image selection using C++23 ranges
+        auto imageIndices = std::views::iota(0uz, availableImages_.size());
+        
+        std::ranges::for_each(imageIndices, [this](size_t i) {
+            const auto filename = std::filesystem::path(availableImages_[i]).filename().string();
+            const bool isSelected = (i == selectedImageIndex_);
             
             if (ImGui::RadioButton(filename.c_str(), isSelected)) {
-                if (static_cast<int>(i) != selectedImageIndex_) {
-                    selectedImageIndex_ = static_cast<int>(i);
+                if (i != selectedImageIndex_) {
+                    selectedImageIndex_ = i;
                     loadImage(availableImages_[selectedImageIndex_]);
                 }
             }
-        }
+        });
         
         ImGui::Separator();
     } else {
@@ -99,45 +114,30 @@ void UIManager::update() {
     
     // Convert current frequency count to logarithmic scale for slider
     float logMin = std::log10(1.0f);
-    float logMax = std::log10(static_cast<float>(maxFrequencies_));
-    float logValue = std::log10(static_cast<float>(std::max(1, frequencyCount_)));
+    auto logMax = std::log10(static_cast<float>(maxFrequencies_));
+    auto logValue = std::log10(static_cast<float>(std::max(1uz, frequencyCount_)));
     
     // Use a float slider for smoother logarithmic control
     if (ImGui::SliderFloat("##logfrequencies", &logValue, logMin, logMax, "")) {
         // Convert back from logarithmic to linear
-        frequencyCount_ = static_cast<int>(std::pow(10.0f, logValue));
-        frequencyCount_ = std::clamp(frequencyCount_, 1, maxFrequencies_);
+        frequencyCount_ = static_cast<size_t>(std::pow(10.0f, logValue));
+        frequencyCount_ = std::clamp(frequencyCount_, 1uz, maxFrequencies_);
         updateVisualization();
     }
     
-    ImGui::Text("Using %d of %d frequencies", frequencyCount_, maxFrequencies_);
+    ImGui::Text("Using %zu of %zu frequencies", frequencyCount_, maxFrequencies_);
 
-    // Display options
-    ImGui::Separator();
-    ImGui::Text("Display Options:");
-    if (ImGui::Checkbox("Show Original Image", &showOriginal_)) {
-        renderer_->setShowOriginal(showOriginal_);
-    }
-    if (ImGui::Checkbox("Show Fourier Reconstruction", &showFourier_)) {
-        renderer_->setShowFourier(showFourier_);
-    }
-    if (ImGui::Checkbox("Show Frequency Circles", &showFrequencyCircles_)) {
-        renderer_->setShowFrequencyCircles(showFrequencyCircles_);
-    }
-    if (ImGui::Checkbox("Show Phase Information", &showPhase_)) {
-        renderer_->setShowPhase(showPhase_);
-    }
 
     ImGui::End();
 
     // Status window
     ImGui::Begin("Status");
     if (imageLoaded_) {
-        ImGui::Text("Image: %dx%d", imageWidth_, imageHeight_);
-        ImGui::Text("Total Frequencies: %d", maxFrequencies_);
-        ImGui::Text("Active Frequencies: %d", frequencyCount_);
+        ImGui::Text("Image: %zux%zu", imageWidth_, imageHeight_);
+        ImGui::Text("Total Frequencies: %zu", maxFrequencies_);
+        ImGui::Text("Active Frequencies: %zu", frequencyCount_);
         ImGui::Text("Reconstruction Quality: %.2f%%", 
-                   (float)frequencyCount_ / maxFrequencies_ * 100.0f);
+                   static_cast<float>(frequencyCount_) / static_cast<float>(maxFrequencies_) * 100.0f);
     } else {
         ImGui::Text("No image loaded");
     }
@@ -172,24 +172,33 @@ void UIManager::loadImage(const std::string& filepath) {
             auto processedRGBImage = rgbImage;
             if (imageWidth_ > maxImageSize_ || imageHeight_ > maxImageSize_) {
                 // Create a smaller version for processing
-                size_t newWidth = std::min(static_cast<size_t>(maxImageSize_), static_cast<size_t>(imageWidth_));
-                size_t newHeight = std::min(static_cast<size_t>(maxImageSize_), static_cast<size_t>(imageHeight_));
+                auto newWidth = std::min(maxImageSize_, imageWidth_);
+                auto newHeight = std::min(maxImageSize_, imageHeight_);
                 
                 auto smallerRGBImage = std::make_shared<RGBComplexImage>(newWidth, newHeight);
                 
-                // Simple downsampling for each channel
-                double scaleX = static_cast<double>(imageWidth_) / newWidth;
-                double scaleY = static_cast<double>(imageHeight_) / newHeight;
+                // Simple downsampling for each channel using C++23 ranges
+                const double scaleX = static_cast<double>(imageWidth_) / static_cast<double>(newWidth);
+                const double scaleY = static_cast<double>(imageHeight_) / static_cast<double>(newHeight);
                 
-                for (int channel = 0; channel < 3; ++channel) {
-                    for (size_t y = 0; y < newHeight; ++y) {
-                        for (size_t x = 0; x < newWidth; ++x) {
-                            size_t srcX = static_cast<size_t>(x * scaleX);
-                            size_t srcY = static_cast<size_t>(y * scaleY);
-                            smallerRGBImage->getChannel(channel).at(x, y) = rgbImage->getChannel(channel).at(srcX, srcY);
-                        }
-                    }
-                }
+                // Process channels using ranges
+                auto channelRange = std::views::iota(0, 3);
+                std::for_each(channelRange.begin(), channelRange.end(),
+                    [&](int channel) {
+                        // Use ranges for coordinate generation
+                        auto coordinates = std::views::cartesian_product(
+                            std::views::iota(0uz, newHeight),
+                            std::views::iota(0uz, newWidth)
+                        );
+                        
+                        std::ranges::for_each(coordinates, [&](const auto& coord) {
+                            auto [y, x] = coord;
+                            const auto srcX = static_cast<size_t>(x * scaleX);
+                            const auto srcY = static_cast<size_t>(y * scaleY);
+                            smallerRGBImage->getChannel(channel).at(x, y) = 
+                                rgbImage->getChannel(channel).at(srcX, srcY);
+                        });
+                    });
                 
                 processedRGBImage = smallerRGBImage;
                 imageWidth_ = newWidth;
@@ -204,7 +213,7 @@ void UIManager::loadImage(const std::string& filepath) {
             
             // Setup visualizer with RGB frequency domain data
             visualizer_->setRGBImage(*transformedRGBImage_);
-            maxFrequencies_ = std::min(50000, static_cast<int>(imageWidth_ * imageHeight_ / 4));
+            maxFrequencies_ = std::min(50000uz, imageWidth_ * imageHeight_ / 4);
             frequencyCount_ = std::min(frequencyCount_, maxFrequencies_);
             
             // Update visualization

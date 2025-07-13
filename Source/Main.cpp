@@ -14,15 +14,17 @@
 
 int main(int argc, char* argv[]) {
     // Parse command line arguments
-    int maxImageSize = 512;  // Default size
+    size_t maxImageSize = 512;  // Default size
     
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if ((arg == "--size" || arg == "-s") && i + 1 < argc) {
-            maxImageSize = std::atoi(argv[++i]);
-            if (maxImageSize <= 0 || maxImageSize > 2048) {
+            int temp_size = std::atoi(argv[++i]);
+            if (temp_size <= 0 || temp_size > 2048) {
                 std::cerr << "Invalid size. Using default 512. Valid range: 1-2048\n";
                 maxImageSize = 512;
+            } else {
+                maxImageSize = static_cast<size_t>(temp_size);
             }
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "Usage: " << argv[0] << " [options]\n";

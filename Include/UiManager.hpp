@@ -18,7 +18,7 @@ public:
               std::shared_ptr<FourierTransform> fourierTransform,
               std::shared_ptr<FourierVisualizer> visualizer,
               std::shared_ptr<Renderer> renderer,
-              int maxImageSize = 512);
+              size_t maxImageSize = 512);
     ~UIManager();
 
     void initialize();
@@ -39,25 +39,20 @@ private:
 
     // UI state
     std::vector<std::string> availableImages_;
-    int selectedImageIndex_ = 0;
+    size_t selectedImageIndex_ = 0;
     bool imageLoaded_ = false;
-    int imageWidth_ = 0;
-    int imageHeight_ = 0;
+    size_t imageWidth_ = 0;
+    size_t imageHeight_ = 0;
 
     // Fourier parameters
-    int frequencyCount_;
-    int maxFrequencies_;
+    size_t frequencyCount_;
+    size_t maxFrequencies_;
     std::shared_ptr<ComplexImage> transformedImage_;
     std::shared_ptr<RGBComplexImage> transformedRGBImage_;
     bool useRGB_ = true;  // Default to RGB processing
 
-    // Display options
-    bool showOriginal_;
-    bool showFourier_;
-    bool showFrequencyCircles_ = true;
-    bool showPhase_ = false;
 
     
     // Processing parameters
-    int maxImageSize_;
+    size_t maxImageSize_;
 };

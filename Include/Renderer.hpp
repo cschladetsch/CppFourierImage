@@ -18,10 +18,6 @@ public:
     void setRGBImage(std::shared_ptr<RGBComplexImage> image);
     void setVisualizer(std::shared_ptr<FourierVisualizer> visualizer);
     
-    void setShowOriginal(bool show) { showOriginal_ = show; }
-    void setShowFourier(bool show) { showFourier_ = show; }
-    void setShowFrequencyCircles(bool show) { showFrequencyCircles_ = show; }
-    void setShowPhase(bool show) { showPhase_ = show; }
     
 private:
     void initializeOpenGL();
@@ -29,7 +25,6 @@ private:
     void updateTextures();
     void updateRGBTextures();
     void renderImage(GLuint texture, float x, float y, float width, float height);
-    void renderFrequencyLines();
     void cleanup();
     
     std::shared_ptr<ComplexImage> image_;
@@ -46,10 +41,6 @@ private:
     GLuint vbo_;
     
     bool initialized_;
-    bool showOriginal_;
-    bool showFourier_;
-    bool showFrequencyCircles_;
-    bool showPhase_;
     
     int imageWidth_;
     int imageHeight_;

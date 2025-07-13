@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <numeric>
 #include <execution>
+#include <ranges>
+#include <thread>
+#include <future>
 
 FourierTransform::FourierTransform() = default;
 FourierTransform::~FourierTransform() = default;
@@ -23,30 +26,44 @@ ComplexImage FourierTransform::transform2D(const ComplexImage& input, Direction 
 }
 
 void FourierTransform::fft2D(ComplexImage& image, Direction direction) {
-    size_t width = image.getWidth();
-    size_t height = image.getHeight();
+    const size_t width = image.getWidth();
+    const size_t height = image.getHeight();
     
-    std::vector<ComplexImage::Complex> row(width);
-    for (size_t y = 0; y < height; ++y) {
-        for (size_t x = 0; x < width; ++x) {
-            row[x] = image.at(x, y);
-        }
-        fft1D(row, direction);
-        for (size_t x = 0; x < width; ++x) {
-            image.at(x, y) = row[x];
-        }
-    }
+    // Process rows using C++23 ranges
+    auto row_indices = std::views::iota(0uz, height);
+    std::for_each(row_indices.begin(), row_indices.end(),
+        [&image, width, direction, this](size_t y) {
+            std::vector<ComplexImage::Complex> row(width);
+            
+            // Use ranges to copy row data
+            auto x_range = std::views::iota(0uz, width);
+            std::ranges::transform(x_range, row.begin(),
+                [&image, y](size_t x) { return image.at(x, y); });
+            
+            fft1D(row, direction);
+            
+            // Use ranges to copy back
+            std::ranges::for_each(x_range, 
+                [&image, &row, y](size_t x) { image.at(x, y) = row[x]; });
+        });
     
-    std::vector<ComplexImage::Complex> col(height);
-    for (size_t x = 0; x < width; ++x) {
-        for (size_t y = 0; y < height; ++y) {
-            col[y] = image.at(x, y);
-        }
-        fft1D(col, direction);
-        for (size_t y = 0; y < height; ++y) {
-            image.at(x, y) = col[y];
-        }
-    }
+    // Process columns using C++23 ranges
+    auto col_indices = std::views::iota(0uz, width);
+    std::for_each(col_indices.begin(), col_indices.end(),
+        [&image, height, direction, this](size_t x) {
+            std::vector<ComplexImage::Complex> col(height);
+            
+            // Use ranges to copy column data
+            auto y_range = std::views::iota(0uz, height);
+            std::ranges::transform(y_range, col.begin(),
+                [&image, x](size_t y) { return image.at(x, y); });
+            
+            fft1D(col, direction);
+            
+            // Use ranges to copy back
+            std::ranges::for_each(y_range,
+                [&image, &col, x](size_t y) { image.at(x, y) = col[y]; });
+        });
 }
 
 void FourierTransform::fft1D(std::span<ComplexImage::Complex> data, Direction direction) {
@@ -74,10 +91,10 @@ void FourierTransform::cooleyTukeyFFT(std::span<ComplexImage::Complex> data, Dir
         j ^= bit;
     }
     
-    double angle_sign = (direction == Direction::Forward) ? -2.0 * PI : 2.0 * PI;
+    Scalar angle_sign = (direction == Direction::Forward) ? -2.0 * PI : 2.0 * PI;
     
     for (size_t len = 2; len <= n; len <<= 1) {
-        double angle = angle_sign / len;
+        Scalar angle = angle_sign / len;
         ComplexImage::Complex wlen(std::cos(angle), std::sin(angle));
         
         for (size_t i = 0; i < n; i += len) {
@@ -95,7 +112,7 @@ void FourierTransform::cooleyTukeyFFT(std::span<ComplexImage::Complex> data, Dir
     }
     
     if (direction == Direction::Inverse) {
-        double factor = 1.0 / n;
+        Scalar factor = 1.0 / n;
         for (auto& c : data) {
             c *= factor;
         }
@@ -106,19 +123,19 @@ void FourierTransform::dft(std::span<ComplexImage::Complex> data, Direction dire
     size_t n = data.size();
     std::vector<ComplexImage::Complex> result(n);
     
-    double angle_sign = (direction == Direction::Forward) ? -2.0 * PI : 2.0 * PI;
+    Scalar angle_sign = (direction == Direction::Forward) ? -2.0 * PI : 2.0 * PI;
     
     for (size_t k = 0; k < n; ++k) {
         ComplexImage::Complex sum(0, 0);
         for (size_t j = 0; j < n; ++j) {
-            double angle = angle_sign * k * j / n;
+            Scalar angle = angle_sign * k * j / n;
             sum += data[j] * ComplexImage::Complex(std::cos(angle), std::sin(angle));
         }
         result[k] = sum;
     }
     
     if (direction == Direction::Inverse) {
-        double factor = 1.0 / n;
+        Scalar factor = 1.0 / n;
         for (auto& c : result) {
             c *= factor;
         }
@@ -127,73 +144,100 @@ void FourierTransform::dft(std::span<ComplexImage::Complex> data, Direction dire
     std::copy(result.begin(), result.end(), data.begin());
 }
 
-ComplexImage FourierTransform::applyFrequencyMask(const ComplexImage& frequency_domain, double frequency_cutoff, bool low_pass) {
+ComplexImage FourierTransform::applyFrequencyMask(const ComplexImage& frequency_domain, Scalar frequency_cutoff, bool low_pass) {
     ComplexImage result = frequency_domain;
-    size_t width = result.getWidth();
-    size_t height = result.getHeight();
+    const Scalar width = result.getWidth();
+    const Scalar height = result.getHeight();
     
-    for (size_t y = 0; y < height; ++y) {
-        for (size_t x = 0; x < width; ++x) {
-            double fx = (x < width / 2) ? x : x - width;
-            double fy = (y < height / 2) ? y : y - height;
-            double freq = std::sqrt(fx * fx + fy * fy);
-            
-            if ((low_pass && freq > frequency_cutoff) || (!low_pass && freq < frequency_cutoff)) {
-                result.at(x, y) = ComplexImage::Complex(0, 0);
-            }
-        }
-    }
+    // Use C++23 ranges for coordinate generation and filtering  
+    auto coordinates = std::views::cartesian_product(
+        std::views::iota(0uz, static_cast<size_t>(height)),
+        std::views::iota(0uz, static_cast<size_t>(width))
+    );
+    
+    // Filter and process coordinates that need masking
+    auto mask_coords = coordinates | std::views::filter([=](const auto& coord) {
+        auto [y, x] = coord;
+        Scalar fx = (x < width / 2.0) ? static_cast<Scalar>(x) : static_cast<Scalar>(x) - width;
+        Scalar fy = (y < height / 2.0) ? static_cast<Scalar>(y) : static_cast<Scalar>(y) - height;
+        Scalar freq = std::sqrt(fx * fx + fy * fy);
+        
+        return (low_pass && freq > frequency_cutoff) || (!low_pass && freq < frequency_cutoff);
+    });
+    
+    // Apply masking using ranges
+    std::for_each(mask_coords.begin(), mask_coords.end(),
+        [&result](const auto& coord) {
+            auto [y, x] = coord;
+            result.at(x, y) = ComplexImage::Complex(0, 0);
+        });
     
     return result;
 }
 
-ComplexImage FourierTransform::applyFrequencyMaskCircular(const ComplexImage& frequency_domain, double radius_ratio) {
+ComplexImage FourierTransform::applyFrequencyMaskCircular(const ComplexImage& frequency_domain, Scalar radius_ratio) {
     ComplexImage result = frequency_domain;
-    size_t width = result.getWidth();
-    size_t height = result.getHeight();
+    const size_t width = result.getWidth();
+    const size_t height = result.getHeight();
     
-    double cx = width / 2.0;
-    double cy = height / 2.0;
-    double max_radius = std::min(cx, cy) * radius_ratio;
+    const Scalar cx = width / 2.0;
+    const Scalar cy = height / 2.0;
+    const Scalar max_radius = std::min(cx, cy) * radius_ratio;
     
-    for (size_t y = 0; y < height; ++y) {
-        for (size_t x = 0; x < width; ++x) {
-            double dx = x - cx;
-            double dy = y - cy;
-            double dist = std::sqrt(dx * dx + dy * dy);
-            
-            if (dist > max_radius) {
-                result.at(x, y) = ComplexImage::Complex(0, 0);
-            }
-        }
-    }
+    // Use C++23 ranges for coordinate generation and filtering  
+    auto coordinates = std::views::cartesian_product(
+        std::views::iota(0uz, static_cast<size_t>(height)),
+        std::views::iota(0uz, static_cast<size_t>(width))
+    );
+    
+    // Filter coordinates outside the circle and apply masking in parallel
+    auto outside_circle = coordinates | std::views::filter([=](const auto& coord) {
+        auto [y, x] = coord;
+        Scalar dx = static_cast<Scalar>(x) - cx;
+        Scalar dy = static_cast<Scalar>(y) - cy;
+        Scalar dist = std::sqrt(dx * dx + dy * dy);
+        return dist > max_radius;
+    });
+    
+    std::for_each(outside_circle.begin(), outside_circle.end(),
+        [&result](const auto& coord) {
+            auto [y, x] = coord;
+            result.at(x, y) = ComplexImage::Complex(0, 0);
+        });
     
     return result;
 }
 
-std::vector<std::pair<int, int>> FourierTransform::getTopFrequencyIndices(const ComplexImage& frequency_domain, int num_frequencies) {
-    size_t width = frequency_domain.getWidth();
-    size_t height = frequency_domain.getHeight();
+std::vector<std::pair<int, int>> FourierTransform::getTopFrequencyIndices(const ComplexImage& frequency_domain, size_t num_frequencies) {
+    const size_t width = frequency_domain.getWidth();
+    const size_t height = frequency_domain.getHeight();
     
-    std::vector<std::tuple<double, int, int>> magnitude_indices;
+    // Use C++23 ranges to generate coordinates and transform to magnitude tuples
+    auto coordinates = std::views::cartesian_product(
+        std::views::iota(0uz, height),
+        std::views::iota(0uz, width)
+    );
+    
+    std::vector<std::tuple<Scalar, int, int>> magnitude_indices;
     magnitude_indices.reserve(width * height);
     
-    for (size_t y = 0; y < height; ++y) {
-        for (size_t x = 0; x < width; ++x) {
-            double mag = std::abs(frequency_domain.at(x, y));
-            magnitude_indices.emplace_back(mag, x, y);
-        }
+    for (const auto& coord : coordinates) {
+        auto [y, x] = coord;
+        Scalar mag = std::abs(frequency_domain.at(x, y));
+        magnitude_indices.emplace_back(mag, static_cast<int>(x), static_cast<int>(y));
     }
     
+    // Sort by magnitude for better performance
+    const auto limit = std::min(num_frequencies, magnitude_indices.size());
     std::partial_sort(magnitude_indices.begin(), 
-                      magnitude_indices.begin() + std::min(static_cast<size_t>(num_frequencies), magnitude_indices.size()),
+                      magnitude_indices.begin() + limit,
                       magnitude_indices.end(),
                       std::greater<>{});
     
+    // Extract coordinates from top magnitude tuples
     std::vector<std::pair<int, int>> result;
-    result.reserve(num_frequencies);
+    result.reserve(limit);
     
-    size_t limit = std::min(static_cast<size_t>(num_frequencies), magnitude_indices.size());
     for (size_t i = 0; i < limit; ++i) {
         result.emplace_back(std::get<1>(magnitude_indices[i]), std::get<2>(magnitude_indices[i]));
     }
@@ -201,7 +245,7 @@ std::vector<std::pair<int, int>> FourierTransform::getTopFrequencyIndices(const 
     return result;
 }
 
-ComplexImage FourierTransform::keepTopFrequencies(const ComplexImage& frequency_domain, int num_frequencies) {
+ComplexImage FourierTransform::keepTopFrequencies(const ComplexImage& frequency_domain, size_t num_frequencies) {
     ComplexImage result(frequency_domain.getWidth(), frequency_domain.getHeight());
     auto top_indices = getTopFrequencyIndices(frequency_domain, num_frequencies);
     
@@ -215,16 +259,27 @@ ComplexImage FourierTransform::keepTopFrequencies(const ComplexImage& frequency_
 RGBComplexImage FourierTransform::transformRGB2D(const RGBComplexImage& input, Direction direction) {
     RGBComplexImage result(input.getWidth(), input.getHeight());
     
-    // Transform each channel separately
-    for (int channel = 0; channel < 3; ++channel) {
-        ComplexImage transformed = transform2D(input.getChannel(channel), direction);
-        result.getChannel(channel) = transformed;
+    // Transform each channel in parallel using C++23 ranges and futures
+    auto channel_range = std::views::iota(0, 3);
+    std::vector<std::future<ComplexImage>> channel_futures;
+    
+    // Launch parallel transforms for each RGB channel
+    std::ranges::transform(channel_range, std::back_inserter(channel_futures),
+        [&input, direction](int channel) {
+            return std::async(std::launch::async, [&input, direction, channel]() {
+                return FourierTransform{}.transform2D(input.getChannel(channel), direction);
+            });
+        });
+    
+    // Collect results from futures
+    for (auto [channel, future] : std::views::zip(channel_range, channel_futures)) {
+        result.getChannel(channel) = future.get();
     }
     
     return result;
 }
 
-RGBComplexImage FourierTransform::keepTopFrequenciesRGB(const RGBComplexImage& frequency_domain, int num_frequencies) {
+RGBComplexImage FourierTransform::keepTopFrequenciesRGB(const RGBComplexImage& frequency_domain, size_t num_frequencies) {
     RGBComplexImage result(frequency_domain.getWidth(), frequency_domain.getHeight());
     
     // Apply frequency filtering to each channel
