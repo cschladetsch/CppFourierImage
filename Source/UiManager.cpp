@@ -29,10 +29,10 @@ UIManager::UIManager(std::shared_ptr<ImageLoader> imageLoader,
     
     // Subscribe to frequency change events
     frequencyChangeHandlerId_ = EventDispatcher::getInstance().subscribe<FrequencyChangeEvent>(
-        [this](const FrequencyChangeEvent& event) {
-            // Update spectrum when frequency changes
+        [this](const FrequencyChangeEvent&) {
+            // Update spectrums when frequency changes
             if (imageLoaded_ && transformedRGBImage_) {
-                computeRedChannelSpectrum();
+                computeChannelSpectrums();
             }
         }
     );
@@ -238,8 +238,8 @@ void UIManager::loadImage(const std::string& filepath) {
             renderer_->setRGBImage(processedRGBImage);
             renderer_->setVisualizer(visualizer_);
             
-            // Compute red channel spectrum
-            computeRedChannelSpectrum();
+            // Compute channel spectrums
+            computeChannelSpectrums();
             
             // Dispatch image loaded event
             EventDispatcher::getInstance().dispatch(
@@ -259,61 +259,109 @@ void UIManager::updateVisualization() {
     }
 }
 
-void UIManager::computeRedChannelSpectrum() {
+void UIManager::computeChannelSpectrums() {
     if (!transformedRGBImage_ || !visualizer_) return;
     
     // Get the reconstructed RGB image to see which frequencies are active
     auto reconstructedRGB = visualizer_->getReconstructedRGBImage();
     
-    // Get the red channel from both original and reconstructed
-    const auto& originalRedChannel = transformedRGBImage_->getChannel(0);
-    const auto& reconstructedRedChannel = reconstructedRGB.getChannel(0);
-    
-    size_t width = originalRedChannel.getWidth();
-    size_t height = originalRedChannel.getHeight();
-    
-    // Compute magnitude spectrum for visualization
-    redChannelSpectrum_.clear();
-    redChannelSpectrum_.reserve(width / 2);
-    
-    // Take a horizontal slice through the center of the frequency domain
+    size_t width = reconstructedRGB.getWidth();
+    size_t height = reconstructedRGB.getHeight();
     size_t centerY = height / 2;
     
-    for (size_t x = 0; x < width / 2; ++x) {
-        // Get the reconstructed value to see if this frequency is active
-        auto reconstructedValue = reconstructedRedChannel.at(x, centerY);
-        Scalar magnitude = std::abs(reconstructedValue);
+    // Compute spectrum for each channel
+    for (int channel = 0; channel < 3; ++channel) {
+        const auto& reconstructedChannel = reconstructedRGB.getChannel(channel);
         
-        // Apply log scale for better visualization
-        Scalar logMag = std::log10(1.0 + magnitude);
-        redChannelSpectrum_.push_back(static_cast<float>(logMag));
-    }
-    
-    // Normalize the spectrum
-    float maxVal = *std::max_element(redChannelSpectrum_.begin(), redChannelSpectrum_.end());
-    if (maxVal > 0) {
-        for (auto& val : redChannelSpectrum_) {
-            val /= maxVal;
+        // Clear and reserve space
+        channelSpectrums_[channel].clear();
+        channelSpectrums_[channel].reserve(width / 2);
+        
+        // Take a horizontal slice through the center of the frequency domain
+        for (size_t x = 0; x < width / 2; ++x) {
+            auto reconstructedValue = reconstructedChannel.at(x, centerY);
+            Scalar magnitude = std::abs(reconstructedValue);
+            
+            // Apply log scale for better visualization
+            Scalar logMag = std::log10(1.0 + magnitude);
+            channelSpectrums_[channel].push_back(static_cast<float>(logMag));
+        }
+        
+        // Normalize the spectrum
+        float maxVal = *std::max_element(channelSpectrums_[channel].begin(), 
+                                       channelSpectrums_[channel].end());
+        if (maxVal > 0) {
+            for (auto& val : channelSpectrums_[channel]) {
+                val /= maxVal;
+            }
         }
     }
 }
 
 void UIManager::renderSpectrumWindow() {
-    ImGui::Begin("Red Channel Spectrum", &showSpectrumWindow_);
+    ImGui::Begin("RGB Frequency Spectrum", &showSpectrumWindow_);
     
-    if (redChannelSpectrum_.empty()) {
+    if (channelSpectrums_[0].empty()) {
         ImGui::Text("No spectrum data available");
     } else {
-        ImGui::Text("Frequency Spectrum (Red Channel)");
+        ImGui::Text("Frequency Spectrum (All Channels)");
         ImGui::Separator();
         
-        // Plot the spectrum
-        ImGui::PlotLines("Magnitude", redChannelSpectrum_.data(), 
-                        static_cast<int>(redChannelSpectrum_.size()), 
-                        0, nullptr, 0.0f, 1.0f, 
-                        ImVec2(400, 200));
+        // Define colors for each channel
+        const ImVec4 colors[3] = {
+            ImVec4(1.0f, 0.2f, 0.2f, 1.0f),  // Red
+            ImVec4(0.2f, 1.0f, 0.2f, 1.0f),  // Green
+            ImVec4(0.2f, 0.2f, 1.0f, 1.0f)   // Blue
+        };
         
-        ImGui::Text("Frequencies: 0 - %zu", redChannelSpectrum_.size());
+        const char* labels[3] = { "Red", "Green", "Blue" };
+        
+        // Use ImGui's low-level drawing API to overlay all curves
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
+        ImVec2 canvas_size(500, 200);
+        
+        // Draw background
+        draw_list->AddRectFilled(canvas_pos, 
+            ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), 
+            IM_COL32(50, 50, 50, 255));
+        
+        // Draw grid lines
+        for (int i = 0; i <= 4; ++i) {
+            float y = canvas_pos.y + (i * canvas_size.y / 4);
+            draw_list->AddLine(
+                ImVec2(canvas_pos.x, y),
+                ImVec2(canvas_pos.x + canvas_size.x, y),
+                IM_COL32(100, 100, 100, 100));
+        }
+        
+        // Plot all three curves on the same axes
+        if (!channelSpectrums_[0].empty()) {
+            int data_count = static_cast<int>(channelSpectrums_[0].size());
+            
+            for (int channel = 0; channel < 3; ++channel) {
+                ImU32 col = ImGui::ColorConvertFloat4ToU32(colors[channel]);
+                
+                for (int i = 1; i < data_count; ++i) {
+                    float x0 = canvas_pos.x + (static_cast<float>(i-1) / data_count) * canvas_size.x;
+                    float x1 = canvas_pos.x + (static_cast<float>(i) / data_count) * canvas_size.x;
+                    float y0 = canvas_pos.y + (1.0f - channelSpectrums_[channel][i-1]) * canvas_size.y;
+                    float y1 = canvas_pos.y + (1.0f - channelSpectrums_[channel][i]) * canvas_size.y;
+                    
+                    draw_list->AddLine(ImVec2(x0, y0), ImVec2(x1, y1), col, 2.0f);
+                }
+            }
+        }
+        
+        // Add legend
+        ImGui::Dummy(canvas_size);
+        for (int i = 0; i < 3; ++i) {
+            ImGui::SameLine();
+            ImGui::TextColored(colors[i], "%s", labels[i]);
+        }
+        
+        ImGui::Separator();
+        ImGui::Text("Frequencies: 0 - %zu", channelSpectrums_[0].size());
         ImGui::Text("Active frequencies: %zu / %zu", frequencyCount_, maxFrequencies_);
         ImGui::Text("Log scale applied for visualization");
     }

@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <glad/glad.h>
+#include "EventSystem.hpp"
 
 class ComplexImage;
 class RGBComplexImage;
@@ -44,4 +45,7 @@ private:
     
     int imageWidth_;
     int imageHeight_;
+    
+    // Event handling
+    EventDispatcher::HandlerId frequencyChangeHandlerId_;
 };

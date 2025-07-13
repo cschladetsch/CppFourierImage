@@ -42,9 +42,23 @@ Renderer::Renderer()
     : originalTexture_(0), fourierTexture_(0), shaderProgram_(0),
       vao_(0), vbo_(0), initialized_(false),
       imageWidth_(0), imageHeight_(0) {
+    
+    // Subscribe to frequency change events to update textures
+    frequencyChangeHandlerId_ = EventDispatcher::getInstance().subscribe<FrequencyChangeEvent>(
+        [this](const FrequencyChangeEvent&) {
+            // Mark that textures need updating on next render
+            if (isRGB_) {
+                updateRGBTextures();
+            } else {
+                updateTextures();
+            }
+        }
+    );
 }
 
 Renderer::~Renderer() {
+    // Unsubscribe from events
+    EventDispatcher::getInstance().unsubscribe<FrequencyChangeEvent>(frequencyChangeHandlerId_);
     cleanup();
 }
 
