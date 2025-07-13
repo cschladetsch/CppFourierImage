@@ -26,24 +26,30 @@ UIManager::UIManager(std::shared_ptr<ImageLoader> imageLoader,
       frequencyCount_(100uz),
       maxFrequencies_(50000uz),
       maxImageSize_(maxImageSize) {
+    
+    // Subscribe to frequency change events
+    frequencyChangeHandlerId_ = EventDispatcher::getInstance().subscribe<FrequencyChangeEvent>(
+        [this](const FrequencyChangeEvent& event) {
+            // Update spectrum when frequency changes
+            if (imageLoaded_ && transformedRGBImage_) {
+                computeRedChannelSpectrum();
+            }
+        }
+    );
 }
 
 UIManager::~UIManager() {
+    // Unsubscribe from events
+    EventDispatcher::getInstance().unsubscribe<FrequencyChangeEvent>(frequencyChangeHandlerId_);
 }
 
 void UIManager::initialize() {
-    std::cout << "UIManager::initialize() called" << std::endl;
-    
     // Scan for available images in Resources folder
     scanResourcesFolder();
-    std::cout << "Found " << availableImages_.size() << " images in Resources folder" << std::endl;
     
     // Auto-load the first image if available
     if (!availableImages_.empty()) {
-        std::cout << "Loading first image: " << availableImages_[0] << std::endl;
         loadImage(availableImages_[0]);
-    } else {
-        std::cout << "No images found to load!" << std::endl;
     }
 }
 
@@ -128,6 +134,11 @@ void UIManager::update() {
         frequencyCount_ = static_cast<size_t>(std::pow(10.0f, logValue));
         frequencyCount_ = std::clamp(frequencyCount_, 1uz, maxFrequencies_);
         updateVisualization();
+        
+        // Dispatch frequency change event
+        EventDispatcher::getInstance().dispatch(
+            FrequencyChangeEvent(frequencyCount_, maxFrequencies_)
+        );
     }
     
     ImGui::Text("Using %zu of %zu frequencies", frequencyCount_, maxFrequencies_);
@@ -147,6 +158,11 @@ void UIManager::update() {
         ImGui::Text("No image loaded");
     }
     ImGui::End();
+    
+    // Render spectrum window
+    if (showSpectrumWindow_ && imageLoaded_) {
+        renderSpectrumWindow();
+    }
 }
 
 void UIManager::render() {
@@ -159,9 +175,7 @@ void UIManager::handleInput() {
 
 void UIManager::loadImage(const std::string& filepath) {
     try {
-        std::cout << "UIManager::loadImage - Loading: " << filepath << std::endl;
         if (imageLoader_->loadImage(filepath)) {
-            std::cout << "UIManager::loadImage - Image loaded successfully" << std::endl;
             imageLoaded_ = true;
             
             // Get RGB image
@@ -171,7 +185,6 @@ void UIManager::loadImage(const std::string& filepath) {
                 imageLoaded_ = false;
                 return;
             }
-            std::cout << "UIManager::loadImage - Got RGB image" << std::endl;
             
             imageWidth_ = rgbImage->getWidth();
             imageHeight_ = rgbImage->getHeight();
@@ -224,6 +237,14 @@ void UIManager::loadImage(const std::string& filepath) {
             // Setup renderer with RGB image for display
             renderer_->setRGBImage(processedRGBImage);
             renderer_->setVisualizer(visualizer_);
+            
+            // Compute red channel spectrum
+            computeRedChannelSpectrum();
+            
+            // Dispatch image loaded event
+            EventDispatcher::getInstance().dispatch(
+                ImageLoadedEvent(imageWidth_, imageHeight_)
+            );
         }
     } catch (const std::exception& e) {
         std::cerr << "Error loading image: " << e.what() << std::endl;
@@ -236,4 +257,66 @@ void UIManager::updateVisualization() {
         visualizer_->setFrequencyCount(frequencyCount_);
         visualizer_->updateAnimation(0.016f); // ~60fps
     }
+}
+
+void UIManager::computeRedChannelSpectrum() {
+    if (!transformedRGBImage_ || !visualizer_) return;
+    
+    // Get the reconstructed RGB image to see which frequencies are active
+    auto reconstructedRGB = visualizer_->getReconstructedRGBImage();
+    
+    // Get the red channel from both original and reconstructed
+    const auto& originalRedChannel = transformedRGBImage_->getChannel(0);
+    const auto& reconstructedRedChannel = reconstructedRGB.getChannel(0);
+    
+    size_t width = originalRedChannel.getWidth();
+    size_t height = originalRedChannel.getHeight();
+    
+    // Compute magnitude spectrum for visualization
+    redChannelSpectrum_.clear();
+    redChannelSpectrum_.reserve(width / 2);
+    
+    // Take a horizontal slice through the center of the frequency domain
+    size_t centerY = height / 2;
+    
+    for (size_t x = 0; x < width / 2; ++x) {
+        // Get the reconstructed value to see if this frequency is active
+        auto reconstructedValue = reconstructedRedChannel.at(x, centerY);
+        Scalar magnitude = std::abs(reconstructedValue);
+        
+        // Apply log scale for better visualization
+        Scalar logMag = std::log10(1.0 + magnitude);
+        redChannelSpectrum_.push_back(static_cast<float>(logMag));
+    }
+    
+    // Normalize the spectrum
+    float maxVal = *std::max_element(redChannelSpectrum_.begin(), redChannelSpectrum_.end());
+    if (maxVal > 0) {
+        for (auto& val : redChannelSpectrum_) {
+            val /= maxVal;
+        }
+    }
+}
+
+void UIManager::renderSpectrumWindow() {
+    ImGui::Begin("Red Channel Spectrum", &showSpectrumWindow_);
+    
+    if (redChannelSpectrum_.empty()) {
+        ImGui::Text("No spectrum data available");
+    } else {
+        ImGui::Text("Frequency Spectrum (Red Channel)");
+        ImGui::Separator();
+        
+        // Plot the spectrum
+        ImGui::PlotLines("Magnitude", redChannelSpectrum_.data(), 
+                        static_cast<int>(redChannelSpectrum_.size()), 
+                        0, nullptr, 0.0f, 1.0f, 
+                        ImVec2(400, 200));
+        
+        ImGui::Text("Frequencies: 0 - %zu", redChannelSpectrum_.size());
+        ImGui::Text("Active frequencies: %zu / %zu", frequencyCount_, maxFrequencies_);
+        ImGui::Text("Log scale applied for visualization");
+    }
+    
+    ImGui::End();
 }

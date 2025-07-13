@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "EventSystem.hpp"
 
 class ComplexImage;
 class RGBComplexImage;
@@ -30,6 +31,8 @@ private:
     void loadImage(const std::string& filepath);
     void updateVisualization();
     void scanResourcesFolder();
+    void renderSpectrumWindow();
+    void computeRedChannelSpectrum();
 
     // Component references
     std::shared_ptr<ImageLoader> imageLoader_;
@@ -55,4 +58,11 @@ private:
     
     // Processing parameters
     size_t maxImageSize_;
+    
+    // Spectrum visualization data
+    std::vector<float> redChannelSpectrum_;
+    bool showSpectrumWindow_ = true;
+    
+    // Event handling
+    EventDispatcher::HandlerId frequencyChangeHandlerId_;
 };

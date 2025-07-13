@@ -240,14 +240,10 @@ void Renderer::updateRGBTextures() {
 
 void Renderer::render(int width, int height) {
     if (!initialized_) {
-        std::cout << "Renderer: Initializing OpenGL..." << std::endl;
         initializeOpenGL();
     }
     
-    if (!image_ && !rgbImage_) {
-        std::cout << "Renderer: No image to render!" << std::endl;
-        return;
-    }
+    if (!image_ && !rgbImage_) return;
     
     // Update reconstructed image from visualizer
     if (visualizer_) {
