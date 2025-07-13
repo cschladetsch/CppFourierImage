@@ -24,11 +24,12 @@ The mathematical foundation relies on the principle that any 2D signal (image) c
 ### Core Functionality
 - **RGB Image Processing**: Load images from Resources folder with automatic format detection
 - **Custom FFT Implementation**: High-performance Cooley-Tukey algorithm for 2D transforms
-- **Interactive Controls**: Logarithmic frequency slider (1-50,000 Hz) for real-time reconstruction
+- **Interactive Controls**: Logarithmic frequency slider (1-50,000 frequencies) for real-time reconstruction
 - **Automatic Optimization**: Smart image resizing (max 512x512) for optimal performance
 - **Dual Visualization**: Side-by-side comparison of original and reconstructed images
-- **RGB Spectrum Analysis**: Real-time frequency spectrum visualization for all color channels
-- **Animation Mode**: Automatic frequency sweep with smooth acceleration/deceleration
+- **RGB Spectrum Analysis**: Real-time frequency spectrum visualization for all color channels with transparency
+- **Animation Mode**: Automatic frequency sweep with smooth cubic ease-in-out damping
+- **Welcome Screen**: Startup popup introducing the application with custom branding
 
 ### Modern C++23 Implementation
 - **Ranges and Views**: Leverages `std::ranges` for expressive, functional-style code
@@ -334,36 +335,44 @@ Simply copy your images to the `Resources/` folder and restart the application. 
 
 ### Controls
 
-1. **Image Selection**
+1. **Welcome Screen**
+   - Displays "Christian's Visual Thing" branding on startup
+   - Informs users that animation will start automatically
+   - Reminds users they can interact with the frequency slider at any time
+
+2. **Image Selection**
    - Radio buttons to select from available images in the Resources/ folder
-   - Supports PNG, JPEG, BMP, GIF, TIFF formats
+   - Supports PNG, JPEG, BMP, TIFF formats
    - Auto-loads first available image on startup
 
-2. **Frequency Control**
+3. **Frequency Control**
    - Logarithmic slider to adjust frequency components (1 to max available)
    - Maximum frequencies calculated as min(50,000, image_width × image_height ÷ 4)
    - Real-time reconstruction updates
    - Animate button for automatic frequency sweep (13 seconds per direction)
-   - Animation features smooth acceleration and deceleration
+   - Animation starts automatically by default
+   - Features smooth cubic ease-in-out damping at endpoints
+   - User interaction with slider automatically stops animation
 
-3. **Status Display**
+4. **Status Display**
    - Shows current image dimensions
    - Displays total available frequencies
    - Shows active frequency count and reconstruction quality percentage
-   - Animation progress indicator
+   - Animation progress and direction indicator
 
-4. **RGB Frequency Spectrum**
-   - Real-time frequency magnitude visualization
-   - All three color channels (R, G, B) overlaid on same plot
+5. **RGB Frequency Spectrum**
+   - Real-time frequency magnitude visualization with semi-transparent window
+   - All three color channels (R, G, B) overlaid on same plot with smoothed curves
    - Logarithmic scale for better dynamic range visibility
-   - Updates automatically with frequency changes
+   - Updates automatically with frequency changes via event system
+   - 80% opacity window for subtle transparency effect
 
-5. **Window Management**
+6. **Window Management**
    - All windows can be freely moved by dragging their title bars
    - Windows can be resized by dragging their corners or edges
    - Close individual windows using the X button (they can be reopened)
-   - RGB Frequency Spectrum window shows all color channels overlaid on the same plot
    - Window positions and sizes are remembered between sessions
+   - Spectrum window features adjustable transparency
 
 ## How It Works
 
@@ -383,13 +392,14 @@ By limiting the number of frequencies used in reconstruction, you can see how im
 - **FourierVisualizer**: Manages frequency filtering and image reconstruction
 - **ImageProcessor**: Parallel image processing with normalization and filtering
 - **Renderer**: OpenGL-based rendering with event-driven texture updates
-- **UIManager**: ImGui-based interface with spectrum visualization and animation
+- **UIManager**: ImGui-based interface with spectrum visualization, animation, and transparency effects
 
 ### Performance Features
 - **Parallel Execution**: Multi-core processing using `std::execution::par_unseq` for:
   - Image downsampling across RGB channels
-  - Spectrum computation and normalization
+  - Spectrum computation and normalization with moving average smoothing
   - Frequency magnitude calculations
+  - Coordinate generation and transformations
 - **Event-Driven Updates**: Components subscribe to events, updating only when needed
 - **Intel TBB Integration**: Automatic work distribution across available CPU cores
 - **Zero-Copy Architecture**: Shared pointers minimize data copying between components

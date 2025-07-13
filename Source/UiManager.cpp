@@ -13,6 +13,8 @@
 #include <string_view>
 #include <array>
 #include <execution>
+#include <algorithm>
+#include <numeric>
 
 UIManager::UIManager(std::shared_ptr<ImageLoader> imageLoader,
                      std::shared_ptr<FourierTransform> fourierTransform,
@@ -92,6 +94,29 @@ void UIManager::scanResourcesFolder() {
 }
 
 void UIManager::update() {
+    // Show startup popup
+    if (showStartupPopup_) {
+        ImGui::OpenPopup("Welcome");
+        
+        // Center the popup
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        
+        if (ImGui::BeginPopupModal("Welcome", &showStartupPopup_, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Christian's Visual Thing");
+            ImGui::Separator();
+            ImGui::Text("Animation will start automatically.");
+            ImGui::Text("You can scrub the Frequency slider at any time.");
+            ImGui::Spacing();
+            
+            if (ImGui::Button("OK", ImVec2(120, 0))) {
+                showStartupPopup_ = false;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+    }
+    
     // Main control panel
     ImGui::Begin("Fourier Transform Controls");
     
@@ -121,28 +146,111 @@ void UIManager::update() {
     }
 
     // Frequency control with logarithmic scale
-    ImGui::Text("Frequency Components:");
+    ImGui::Text("Frequency:");
+    
+    // Handle animation
+    if (isAnimating_ && imageLoaded_) {
+        // Update animation time (ImGui frame time is roughly 60fps)
+        float deltaTime = ImGui::GetIO().DeltaTime;
+        
+        if (animationDirection_) {
+            animationTime_ += deltaTime;
+            if (animationTime_ >= animationDuration_) {
+                animationTime_ = animationDuration_;
+                animationDirection_ = false;
+            }
+        } else {
+            animationTime_ -= deltaTime;
+            if (animationTime_ <= 0.0f) {
+                animationTime_ = 0.0f;
+                animationDirection_ = true;
+            }
+        }
+    }
     
     // Convert current frequency count to logarithmic scale for slider
     float logMin = std::log10(1.0f);
     auto logMax = std::log10(static_cast<float>(maxFrequencies_));
     auto logValue = std::log10(static_cast<float>(std::max(1uz, frequencyCount_)));
     
+    // Override with animation value if animating
+    if (isAnimating_ && imageLoaded_) {
+        float t = animationTime_ / animationDuration_;
+        
+        // Apply ease-in-out cubic for smooth acceleration and deceleration
+        // This creates slow start, fast middle, slow end
+        if (t < 0.5f) {
+            t = 4.0f * t * t * t; // ease in cubic
+        } else {
+            t = 1.0f - std::pow(-2.0f * t + 2.0f, 3.0f) / 2.0f; // ease out cubic
+        }
+        
+        logValue = logMin + (logMax - logMin) * t;
+        
+        // Update frequency count from animation
+        size_t newFrequencyCount = static_cast<size_t>(std::pow(10.0f, logValue));
+        newFrequencyCount = std::clamp(newFrequencyCount, 1uz, maxFrequencies_);
+        
+        if (newFrequencyCount != frequencyCount_) {
+            frequencyCount_ = newFrequencyCount;
+            // Single event dispatch triggers all updates
+            EventDispatcher::getInstance().dispatch(
+                FrequencyChangeEvent(frequencyCount_, maxFrequencies_)
+            );
+        }
+    }
+    
     // Use a float slider for smoother logarithmic control
     if (ImGui::SliderFloat("##logfrequencies", &logValue, logMin, logMax, "")) {
-        // Convert back from logarithmic to linear
-        frequencyCount_ = static_cast<size_t>(std::pow(10.0f, logValue));
-        frequencyCount_ = std::clamp(frequencyCount_, 1uz, maxFrequencies_);
-        updateVisualization();
-        
-        // Dispatch frequency change event
-        EventDispatcher::getInstance().dispatch(
-            FrequencyChangeEvent(frequencyCount_, maxFrequencies_)
-        );
+        if (!isAnimating_) {
+            // Convert back from logarithmic to linear
+            size_t newFrequencyCount = static_cast<size_t>(std::pow(10.0f, logValue));
+            newFrequencyCount = std::clamp(newFrequencyCount, 1uz, maxFrequencies_);
+            
+            if (newFrequencyCount != frequencyCount_) {
+                frequencyCount_ = newFrequencyCount;
+                // Single event dispatch triggers all updates
+                EventDispatcher::getInstance().dispatch(
+                    FrequencyChangeEvent(frequencyCount_, maxFrequencies_)
+                );
+            }
+        } else {
+            // Stop animation if user manually moves slider
+            isAnimating_ = false;
+        }
     }
     
     ImGui::Text("Using %zu of %zu frequencies", frequencyCount_, maxFrequencies_);
-
+    
+    // Animation controls
+    ImGui::Separator();
+    if (ImGui::Button(isAnimating_ ? "Stop Animation" : "Animate", ImVec2(-1, 0))) {
+        isAnimating_ = !isAnimating_;
+        if (isAnimating_) {
+            // Calculate starting time based on current position
+            float normalizedPos = (logValue - logMin) / (logMax - logMin);
+            
+            // Inverse of ease-in-out cubic to find time from position
+            if (normalizedPos < 0.5f) {
+                animationTime_ = std::cbrt(normalizedPos / 4.0f) * animationDuration_;
+            } else {
+                float temp = 2.0f - 2.0f * normalizedPos;
+                animationTime_ = (1.0f - std::cbrt(temp) / 2.0f) * animationDuration_;
+            }
+            
+            // Determine direction based on position
+            animationDirection_ = true;
+        }
+    }
+    
+    if (isAnimating_) {
+        float progress = animationTime_ / animationDuration_;
+        if (!animationDirection_) {
+            progress = 1.0f - progress;
+        }
+        ImGui::Text("Animation: %.1f%% (%s)", progress * 100.0f, 
+                    animationDirection_ ? "Forward" : "Reverse");
+    }
 
     ImGui::End();
 
@@ -202,18 +310,30 @@ void UIManager::loadImage(const std::string& filepath) {
                 const double scaleX = static_cast<double>(imageWidth_) / static_cast<double>(newWidth);
                 const double scaleY = static_cast<double>(imageHeight_) / static_cast<double>(newHeight);
                 
-                // Process channels
-                for (int channel = 0; channel < 3; ++channel) {
-                    // Process each pixel
-                    for (size_t y = 0; y < newHeight; ++y) {
-                        for (size_t x = 0; x < newWidth; ++x) {
-                            const auto srcX = static_cast<size_t>(x * scaleX);
-                            const auto srcY = static_cast<size_t>(y * scaleY);
-                            smallerRGBImage->getChannel(channel).at(x, y) = 
-                                rgbImage->getChannel(channel).at(srcX, srcY);
+                // Process channels in parallel
+                std::array<int, 3> channels = {0, 1, 2};
+                std::for_each(std::execution::par_unseq, channels.begin(), channels.end(),
+                    [&](int channel) {
+                        // Generate all pixel coordinates
+                        std::vector<std::pair<size_t, size_t>> coords;
+                        coords.reserve(newWidth * newHeight);
+                        
+                        for (size_t y = 0; y < newHeight; ++y) {
+                            for (size_t x = 0; x < newWidth; ++x) {
+                                coords.emplace_back(x, y);
+                            }
                         }
-                    }
-                }
+                        
+                        // Process all pixels in parallel
+                        std::for_each(std::execution::par_unseq, coords.begin(), coords.end(),
+                            [&](const auto& coord) {
+                                auto [x, y] = coord;
+                                const auto srcX = static_cast<size_t>(x * scaleX);
+                                const auto srcY = static_cast<size_t>(y * scaleY);
+                                smallerRGBImage->getChannel(channel).at(x, y) = 
+                                    rgbImage->getChannel(channel).at(srcX, srcY);
+                            });
+                    });
                 
                 processedRGBImage = smallerRGBImage;
                 imageWidth_ = newWidth;
@@ -231,12 +351,12 @@ void UIManager::loadImage(const std::string& filepath) {
             maxFrequencies_ = std::min(50000uz, imageWidth_ * imageHeight_ / 4);
             frequencyCount_ = std::min(frequencyCount_, maxFrequencies_);
             
-            // Update visualization
-            updateVisualization();
-            
             // Setup renderer with RGB image for display
             renderer_->setRGBImage(processedRGBImage);
             renderer_->setVisualizer(visualizer_);
+            
+            // Initial visualization setup
+            visualizer_->setFrequencyCount(frequencyCount_);
             
             // Compute channel spectrums
             computeChannelSpectrums();
@@ -244,6 +364,11 @@ void UIManager::loadImage(const std::string& filepath) {
             // Dispatch image loaded event
             EventDispatcher::getInstance().dispatch(
                 ImageLoadedEvent(imageWidth_, imageHeight_)
+            );
+            
+            // Dispatch initial frequency event
+            EventDispatcher::getInstance().dispatch(
+                FrequencyChangeEvent(frequencyCount_, maxFrequencies_)
             );
         }
     } catch (const std::exception& e) {
@@ -255,7 +380,7 @@ void UIManager::loadImage(const std::string& filepath) {
 void UIManager::updateVisualization() {
     if (imageLoaded_ && visualizer_) {
         visualizer_->setFrequencyCount(frequencyCount_);
-        visualizer_->updateAnimation(0.016f); // ~60fps
+        // All other updates happen via events
     }
 }
 
@@ -269,36 +394,81 @@ void UIManager::computeChannelSpectrums() {
     size_t height = reconstructedRGB.getHeight();
     size_t centerY = height / 2;
     
-    // Compute spectrum for each channel
-    for (int channel = 0; channel < 3; ++channel) {
-        const auto& reconstructedChannel = reconstructedRGB.getChannel(channel);
-        
-        // Clear and reserve space
-        channelSpectrums_[channel].clear();
-        channelSpectrums_[channel].reserve(width / 2);
-        
-        // Take a horizontal slice through the center of the frequency domain
-        for (size_t x = 0; x < width / 2; ++x) {
-            auto reconstructedValue = reconstructedChannel.at(x, centerY);
-            Scalar magnitude = std::abs(reconstructedValue);
+    // Process all channels in parallel
+    std::array<int, 3> channels = {0, 1, 2};
+    
+    std::for_each(std::execution::par_unseq, channels.begin(), channels.end(),
+        [this, &reconstructedRGB, width, centerY](int channel) {
+            const auto& reconstructedChannel = reconstructedRGB.getChannel(channel);
             
-            // Apply log scale for better visualization
-            Scalar logMag = std::log10(1.0 + magnitude);
-            channelSpectrums_[channel].push_back(static_cast<float>(logMag));
-        }
-        
-        // Normalize the spectrum
-        float maxVal = *std::max_element(channelSpectrums_[channel].begin(), 
-                                       channelSpectrums_[channel].end());
-        if (maxVal > 0) {
-            for (auto& val : channelSpectrums_[channel]) {
-                val /= maxVal;
+            // Clear and resize in one operation
+            channelSpectrums_[channel].resize(width / 2);
+            
+            // Generate x coordinates
+            std::vector<size_t> x_coords(width / 2);
+            std::iota(x_coords.begin(), x_coords.end(), 0);
+            
+            // Compute magnitudes in parallel
+            std::transform(std::execution::par_unseq, 
+                          x_coords.begin(), x_coords.end(),
+                          channelSpectrums_[channel].begin(),
+                          [&reconstructedChannel, centerY](size_t x) {
+                              auto reconstructedValue = reconstructedChannel.at(x, centerY);
+                              Scalar magnitude = std::abs(reconstructedValue);
+                              // Apply log scale for better visualization
+                              return static_cast<float>(std::log10(1.0 + magnitude));
+                          });
+            
+            // Find max value for normalization
+            auto max_it = std::max_element(std::execution::par_unseq,
+                                         channelSpectrums_[channel].begin(), 
+                                         channelSpectrums_[channel].end());
+            float maxVal = *max_it;
+            
+            if (maxVal > 0) {
+                // Normalize in parallel
+                std::for_each(std::execution::par_unseq,
+                            channelSpectrums_[channel].begin(),
+                            channelSpectrums_[channel].end(),
+                            [maxVal](float& val) { val /= maxVal; });
             }
-        }
-    }
+            
+            // Apply smoothing using a simple moving average
+            constexpr int smoothingWindow = 7;
+            std::vector<float> smoothed(channelSpectrums_[channel].size());
+            
+            // Use parallel execution for smoothing
+            std::vector<size_t> indices(channelSpectrums_[channel].size());
+            std::iota(indices.begin(), indices.end(), 0);
+            
+            std::transform(std::execution::par_unseq,
+                          indices.begin(), indices.end(),
+                          smoothed.begin(),
+                          [this, channel](size_t i) {
+                              float sum = 0.0f;
+                              int count = 0;
+                              
+                              // Average over neighboring points
+                              for (int j = -smoothingWindow/2; j <= smoothingWindow/2; ++j) {
+                                  int idx = static_cast<int>(i) + j;
+                                  if (idx >= 0 && idx < static_cast<int>(channelSpectrums_[channel].size())) {
+                                      sum += channelSpectrums_[channel][idx];
+                                      count++;
+                                  }
+                              }
+                              
+                              return sum / count;
+                          });
+            
+            channelSpectrums_[channel] = std::move(smoothed);
+        });
 }
 
 void UIManager::renderSpectrumWindow() {
+    // Set window transparency - both background and content
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.8f);  // 80% opacity = 20% transparent
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.1f, 0.1f, 0.1f, 0.8f)); // Window background also 80% opacity
+    
     ImGui::Begin("RGB Frequency Spectrum", &showSpectrumWindow_);
     
     if (channelSpectrums_[0].empty()) {
@@ -321,10 +491,10 @@ void UIManager::renderSpectrumWindow() {
         ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
         ImVec2 canvas_size(500, 200);
         
-        // Draw background
+        // Draw background with transparency
         draw_list->AddRectFilled(canvas_pos, 
             ImVec2(canvas_pos.x + canvas_size.x, canvas_pos.y + canvas_size.y), 
-            IM_COL32(50, 50, 50, 255));
+            IM_COL32(50, 50, 50, 204)); // 80% opacity (204/255)
         
         // Draw grid lines
         for (int i = 0; i <= 4; ++i) {
@@ -348,7 +518,7 @@ void UIManager::renderSpectrumWindow() {
                     float y0 = canvas_pos.y + (1.0f - channelSpectrums_[channel][i-1]) * canvas_size.y;
                     float y1 = canvas_pos.y + (1.0f - channelSpectrums_[channel][i]) * canvas_size.y;
                     
-                    draw_list->AddLine(ImVec2(x0, y0), ImVec2(x1, y1), col, 2.0f);
+                    draw_list->AddLine(ImVec2(x0, y0), ImVec2(x1, y1), col, 3.0f);
                 }
             }
         }
@@ -367,4 +537,8 @@ void UIManager::renderSpectrumWindow() {
     }
     
     ImGui::End();
+    
+    // Restore original styles
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
 }

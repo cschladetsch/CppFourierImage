@@ -6,8 +6,21 @@
 #include <ranges>
 #include <execution>
 
-FourierVisualizer::FourierVisualizer() : fourier_transform_(std::make_shared<FourierTransform>()) {}
-FourierVisualizer::~FourierVisualizer() = default;
+FourierVisualizer::FourierVisualizer() : fourier_transform_(std::make_shared<FourierTransform>()) {
+    // Subscribe to frequency change events
+    frequencyChangeHandlerId_ = EventDispatcher::getInstance().subscribe<FrequencyChangeEvent>(
+        [this](const FrequencyChangeEvent& event) {
+            if (animation_state_.current_frequency_count != event.newFrequencyCount) {
+                setFrequencyCount(event.newFrequencyCount);
+            }
+        }
+    );
+}
+
+FourierVisualizer::~FourierVisualizer() {
+    // Unsubscribe from events
+    EventDispatcher::getInstance().unsubscribe<FrequencyChangeEvent>(frequencyChangeHandlerId_);
+}
 
 void FourierVisualizer::setImage(const ComplexImage& frequency_domain) {
     frequency_domain_ = frequency_domain;
@@ -169,16 +182,16 @@ std::vector<FourierVisualizer::VisualizationLine> FourierVisualizer::getVisualiz
         std::ranges::copy(visualizationLines, std::back_inserter(lines));
     } else if (!animation_state_.is_rgb && frequency_domain_.getWidth() > 0) {
         // For grayscale images
-        double freq_width = frequency_domain_.getWidth();
-        double freq_height = frequency_domain_.getHeight();
+        Scalar freq_width = frequency_domain_.getWidth();
+        Scalar freq_height = frequency_domain_.getHeight();
         
         // Center coordinates in frequency domain
-        const double centerX = freq_width / 2.0;
-        const double centerY = freq_height / 2.0;
+        const Scalar centerX = freq_width / 2.0;
+        const Scalar centerY = freq_height / 2.0;
         
         // Scale factors to convert from frequency domain to screen coordinates
-        const double scaleX = width / freq_width;
-        const double scaleY = height / freq_height;
+        const Scalar scaleX = width / freq_width;
+        const Scalar scaleY = height / freq_height;
         
         // Get active frequencies and create visualization lines using C++23 ranges
         auto visualizationLines = animation_state_.active_frequencies 

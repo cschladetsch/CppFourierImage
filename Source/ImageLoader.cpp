@@ -59,7 +59,7 @@ bool ImageLoader::loadImage(const std::string& filepath) {
                 // Convert to grayscale using standard weights
                 float gray = 0.299f * r + 0.587f * g + 0.114f * b;
                 double value = gray / 255.0;
-                _complexImage->at(x, y) = std::complex<double>(value, 0.0);
+                _complexImage->at(x, y) = ComplexImage::Complex(value, 0.0);
             }
         }
         

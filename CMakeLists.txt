@@ -16,6 +16,7 @@ include(FetchContent)
 # Find required packages
 find_package(OpenGL REQUIRED)
 find_package(Threads REQUIRED)
+find_package(TBB REQUIRED)
 
 # Find FFTW3 for Fourier transforms
 find_library(FFTW3_LIBRARY fftw3)
@@ -135,6 +136,7 @@ target_link_libraries(fourier_viewer
     ${OPENGL_LIBRARIES}
     ${FFTW3_LIBRARY}
     Threads::Threads
+    TBB::tbb
     m
     ${CMAKE_DL_LIBS}
 )

@@ -66,4 +66,13 @@ private:
     
     // Event handling
     EventDispatcher::HandlerId frequencyChangeHandlerId_;
+    
+    // Animation state
+    bool isAnimating_ = true;  // Start animating by default
+    float animationTime_ = 0.0f;
+    float animationDuration_ = 13.0f; // 13 seconds for each direction
+    bool animationDirection_ = true; // true = forward, false = backward
+    
+    // UI state
+    bool showStartupPopup_ = true;
 };

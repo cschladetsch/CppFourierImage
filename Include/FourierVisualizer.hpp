@@ -3,6 +3,7 @@
 #include "ComplexImage.hpp"
 #include "RgbComplexImage.hpp"
 #include "Types.hpp"
+#include "EventSystem.hpp"
 #include <vector>
 #include <memory>
 
@@ -54,4 +55,7 @@ private:
     
     void reconstructFromFrequencies();
     void reconstructRGBFromFrequencies();
+    
+    // Event handling
+    EventDispatcher::HandlerId frequencyChangeHandlerId_;
 };
