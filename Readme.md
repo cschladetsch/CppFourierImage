@@ -27,11 +27,14 @@ The mathematical foundation relies on the principle that any 2D signal (image) c
 - **Interactive Controls**: Logarithmic frequency slider (1-50,000 Hz) for real-time reconstruction
 - **Automatic Optimization**: Smart image resizing (max 512x512) for optimal performance
 - **Dual Visualization**: Side-by-side comparison of original and reconstructed images
+- **RGB Spectrum Analysis**: Real-time frequency spectrum visualization for all color channels
+- **Animation Mode**: Automatic frequency sweep with smooth acceleration/deceleration
 
 ### Modern C++23 Implementation
 - **Ranges and Views**: Leverages `std::ranges` for expressive, functional-style code
-- **Parallel Processing**: Multi-threaded RGB channel processing using `std::async`
-- **Type Safety**: Minimal casting with improved type deduction
+- **Parallel Processing**: Multi-core execution using `std::execution::par_unseq` with Intel TBB
+- **Event-Driven Architecture**: Observer pattern for efficient updates via custom event system
+- **Type Safety**: Unified `Scalar` type system for consistent precision throughout
 - **Memory Efficiency**: Lazy evaluation with range views
 - **Cross-platform**: Supports Linux, Windows, and macOS
 
@@ -253,6 +256,8 @@ return VisualizationLine{
 - CMake 3.20 or higher
 - OpenGL 3.3+
 - PNG and JPEG libraries (for image format support)
+- Intel TBB (Threading Building Blocks) for parallel execution
+- FFTW3 library for Fourier transforms
 
 ### Ubuntu/Debian Installation
 
@@ -260,7 +265,9 @@ return VisualizationLine{
 sudo apt-get update
 sudo apt-get install build-essential cmake git
 sudo apt-get install libpng-dev libjpeg-dev
-sudo apt-get install libgtest-dev
+sudo apt-get install libfftw3-dev libtbb-dev
+sudo apt-get install libgl1-mesa-dev libglu1-mesa-dev
+sudo apt-get install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 ```
 
 ### Fedora Installation
@@ -268,7 +275,9 @@ sudo apt-get install libgtest-dev
 ```bash
 sudo dnf install gcc-c++ cmake git
 sudo dnf install libpng-devel libjpeg-devel
-sudo dnf install gtest-devel
+sudo dnf install fftw3-devel tbb-devel
+sudo dnf install mesa-libGL-devel mesa-libGLU-devel
+sudo dnf install libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel
 ```
 
 ### Windows (WSL2)
@@ -318,6 +327,11 @@ You can add your own images to analyze by placing them in the `Resources/` folde
 
 Simply copy your images to the `Resources/` folder and restart the application. Your images will appear in the image selector within the application's control panel.
 
+**Included Test Images:**
+- **RGB.jpg**: Vertical RGB color blocks for testing horizontal frequency components
+- **RGB_Circles.jpg**: Concentric RGB circles for radial frequency patterns
+- **RGB_Diagonal.jpg**: 45-degree diagonal RGB stripes for angular frequency analysis
+
 ### Controls
 
 1. **Image Selection**
@@ -329,13 +343,22 @@ Simply copy your images to the `Resources/` folder and restart the application. 
    - Logarithmic slider to adjust frequency components (1 to max available)
    - Maximum frequencies calculated as min(50,000, image_width × image_height ÷ 4)
    - Real-time reconstruction updates
+   - Animate button for automatic frequency sweep (13 seconds per direction)
+   - Animation features smooth acceleration and deceleration
 
 3. **Status Display**
    - Shows current image dimensions
    - Displays total available frequencies
    - Shows active frequency count and reconstruction quality percentage
+   - Animation progress indicator
 
-4. **Window Management**
+4. **RGB Frequency Spectrum**
+   - Real-time frequency magnitude visualization
+   - All three color channels (R, G, B) overlaid on same plot
+   - Logarithmic scale for better dynamic range visibility
+   - Updates automatically with frequency changes
+
+5. **Window Management**
    - All windows can be freely moved by dragging their title bars
    - Windows can be resized by dragging their corners or edges
    - Close individual windows using the X button (they can be reopened)
@@ -350,14 +373,26 @@ By limiting the number of frequencies used in reconstruction, you can see how im
 
 ## Architecture
 
+### Core Components
 - **Types.hpp**: Unified scalar type system with configurable precision (`using Scalar = double`)
-- **ImageLoader**: Loads RGB images using CImg library
+- **EventSystem.hpp**: Observer pattern implementation for loose coupling between components
+- **ImageLoader**: Loads RGB images using CImg library with multi-format support
 - **ComplexImage**: Represents grayscale images in complex number format with Scalar precision
 - **RGBComplexImage**: Represents RGB images with separate complex channels
 - **FourierTransform**: Performs forward and inverse FFT using custom Cooley-Tukey implementation
 - **FourierVisualizer**: Manages frequency filtering and image reconstruction
-- **Renderer**: OpenGL-based rendering of original and reconstructed images
-- **UIManager**: ImGui-based user interface with image selection and frequency control
+- **ImageProcessor**: Parallel image processing with normalization and filtering
+- **Renderer**: OpenGL-based rendering with event-driven texture updates
+- **UIManager**: ImGui-based interface with spectrum visualization and animation
+
+### Performance Features
+- **Parallel Execution**: Multi-core processing using `std::execution::par_unseq` for:
+  - Image downsampling across RGB channels
+  - Spectrum computation and normalization
+  - Frequency magnitude calculations
+- **Event-Driven Updates**: Components subscribe to events, updating only when needed
+- **Intel TBB Integration**: Automatic work distribution across available CPU cores
+- **Zero-Copy Architecture**: Shared pointers minimize data copying between components
 
 ## Performance: Float vs Double Precision
 
