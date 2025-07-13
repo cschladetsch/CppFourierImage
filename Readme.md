@@ -306,6 +306,18 @@ ctest
 ./Bin/fourier_viewer
 ```
 
+### Using Your Own Images
+
+You can add your own images to analyze by placing them in the `Resources/` folder. The application will automatically detect and list all supported image files in this directory.
+
+**Supported formats:**
+- JPEG (.jpg, .jpeg)
+- PNG (.png)
+- BMP (.bmp)
+- TIFF (.tiff, .tif)
+
+Simply copy your images to the `Resources/` folder and restart the application. Your images will appear in the image selector within the application's control panel.
+
 ### Controls
 
 1. **Image Selection**
