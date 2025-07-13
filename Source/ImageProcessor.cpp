@@ -177,8 +177,8 @@ ComplexImage ImageProcessor::applyEdgeDetection(const ComplexImage& input) {
             for (int dy = -1; dy <= 1; ++dy) {
                 for (int dx = -1; dx <= 1; ++dx) {
                     ComplexImage::Complex pixel = input.at(x + dx, y + dy);
-                    gx += pixel * static_cast<double>(sobel_x[dy + 1][dx + 1]);
-                    gy += pixel * static_cast<double>(sobel_y[dy + 1][dx + 1]);
+                    gx += pixel * static_cast<Scalar>(sobel_x[dy + 1][dx + 1]);
+                    gy += pixel * static_cast<Scalar>(sobel_y[dy + 1][dx + 1]);
                 }
             }
             

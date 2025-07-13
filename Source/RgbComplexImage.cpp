@@ -39,9 +39,9 @@ std::vector<uint32_t> RGBComplexImage::toRGB() const {
     for (size_t y = 0; y < height_; ++y) {
         for (size_t x = 0; x < width_; ++x) {
             // Get real parts and clamp to [0, 1]
-            Scalar r = std::clamp(channels_[0].at(x, y).real(), 0.0, 1.0);
-            Scalar g = std::clamp(channels_[1].at(x, y).real(), 0.0, 1.0);
-            Scalar b = std::clamp(channels_[2].at(x, y).real(), 0.0, 1.0);
+            Scalar r = std::clamp(channels_[0].at(x, y).real(), Scalar(0.0), Scalar(1.0));
+            Scalar g = std::clamp(channels_[1].at(x, y).real(), Scalar(0.0), Scalar(1.0));
+            Scalar b = std::clamp(channels_[2].at(x, y).real(), Scalar(0.0), Scalar(1.0));
             
             // Convert to 8-bit and pack
             uint8_t r8 = static_cast<uint8_t>(r * 255);
