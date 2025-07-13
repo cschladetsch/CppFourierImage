@@ -279,8 +279,13 @@ For WSL2 users, follow the Ubuntu/Debian instructions above. Make sure you have 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/CppFourier.git
+git clone https://github.com/cschladetsch/CppFourier.git
 cd CppFourier
+
+# Run the run script
+./r
+
+##### OR
 
 # Create build directory
 mkdir build && cd build
