@@ -40,13 +40,13 @@ ComplexImage ImageProcessor::cropToOriginalSize(const ComplexImage& input, size_
     return cropped;
 }
 
-std::vector<uint8_t> ImageProcessor::normalizeToUint8(const std::vector<double>& data) {
+std::vector<uint8_t> ImageProcessor::normalizeToUint8(const std::vector<Scalar>& data) {
     std::vector<uint8_t> result(data.size());
     
     auto [min_it, max_it] = std::minmax_element(data.begin(), data.end());
-    double min_val = *min_it;
-    double max_val = *max_it;
-    double range = max_val - min_val;
+    Scalar min_val = *min_it;
+    Scalar max_val = *max_it;
+    Scalar range = max_val - min_val;
     
     if (range < 1e-10) range = 1.0;
     
@@ -71,7 +71,7 @@ std::vector<Scalar> ImageProcessor::normalizeToFloat(const std::vector<Scalar>& 
     
     std::transform(data.begin(), data.end(), result.begin(),
                    [min_val, range](Scalar val) {
-                       return static_cast<float>((val - min_val) / range);
+                       return (val - min_val) / range;
                    });
     
     return result;
@@ -79,7 +79,7 @@ std::vector<Scalar> ImageProcessor::normalizeToFloat(const std::vector<Scalar>& 
 
 void ImageProcessor::applyLogScale(std::vector<Scalar>& magnitude_data) {
     std::transform(magnitude_data.begin(), magnitude_data.end(), magnitude_data.begin(),
-                   [](Scalar val) { return std::log10(Scalar(1.0) + val); });
+                   [](Scalar val) { return std::log10(1.0 + val); });
 }
 
 void ImageProcessor::applyColorMap(const std::vector<uint8_t>& grayscale, std::vector<uint8_t>& rgb_output) {
@@ -87,7 +87,7 @@ void ImageProcessor::applyColorMap(const std::vector<uint8_t>& grayscale, std::v
     
     for (size_t i = 0; i < grayscale.size(); ++i) {
         uint8_t val = grayscale[i];
-        Scalar t = val / Scalar(255.0);
+        Scalar t = val / 255.0;
         
         uint8_t r, g, b;
         if (t < 0.25f) {

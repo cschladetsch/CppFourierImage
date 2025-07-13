@@ -59,6 +59,7 @@ int main(int argc, char* argv[]) {
         glfwTerminate();
         return -1;
     }
+    std::cout << "Window created successfully" << std::endl;
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
@@ -68,6 +69,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Failed to initialize GLAD\n";
         return -1;
     }
+    std::cout << "GLAD initialized successfully" << std::endl;
 
     // Setup ImGui context
     IMGUI_CHECKVERSION();
@@ -90,12 +92,15 @@ int main(int argc, char* argv[]) {
     auto uiManager = std::make_unique<UIManager>(imageLoader, fourierTransform, visualizer, renderer, maxImageSize);
     
     // Initialize UI Manager (auto-loads default image)
+    std::cout << "Initializing UI Manager..." << std::endl;
     uiManager->initialize();
+    std::cout << "UI Manager initialized." << std::endl;
 
     // Clear color
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // Main loop
+    std::cout << "Starting main loop..." << std::endl;
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 

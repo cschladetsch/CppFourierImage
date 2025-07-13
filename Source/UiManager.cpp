@@ -32,13 +32,18 @@ UIManager::~UIManager() {
 }
 
 void UIManager::initialize() {
+    std::cout << "UIManager::initialize() called" << std::endl;
     
     // Scan for available images in Resources folder
     scanResourcesFolder();
+    std::cout << "Found " << availableImages_.size() << " images in Resources folder" << std::endl;
     
     // Auto-load the first image if available
     if (!availableImages_.empty()) {
+        std::cout << "Loading first image: " << availableImages_[0] << std::endl;
         loadImage(availableImages_[0]);
+    } else {
+        std::cout << "No images found to load!" << std::endl;
     }
 }
 
@@ -48,9 +53,9 @@ void UIManager::scanResourcesFolder() {
     constexpr std::string_view resourcesPath = "./Resources/";
     
     // Define supported extensions using a constexpr array
-    constexpr std::array<std::string_view, 7> supportedExtensions{
+    constexpr std::array<std::string_view, 6> supportedExtensions{
         ".jpg", ".jpeg", ".png", ".bmp", 
-        ".gif", ".tiff", ".tif"
+        ".tiff", ".tif"
     };
     
     try {
@@ -154,7 +159,9 @@ void UIManager::handleInput() {
 
 void UIManager::loadImage(const std::string& filepath) {
     try {
+        std::cout << "UIManager::loadImage - Loading: " << filepath << std::endl;
         if (imageLoader_->loadImage(filepath)) {
+            std::cout << "UIManager::loadImage - Image loaded successfully" << std::endl;
             imageLoaded_ = true;
             
             // Get RGB image
@@ -164,6 +171,7 @@ void UIManager::loadImage(const std::string& filepath) {
                 imageLoaded_ = false;
                 return;
             }
+            std::cout << "UIManager::loadImage - Got RGB image" << std::endl;
             
             imageWidth_ = rgbImage->getWidth();
             imageHeight_ = rgbImage->getHeight();
@@ -181,24 +189,18 @@ void UIManager::loadImage(const std::string& filepath) {
                 const double scaleX = static_cast<double>(imageWidth_) / static_cast<double>(newWidth);
                 const double scaleY = static_cast<double>(imageHeight_) / static_cast<double>(newHeight);
                 
-                // Process channels using ranges
-                auto channelRange = std::views::iota(0, 3);
-                std::for_each(channelRange.begin(), channelRange.end(),
-                    [&](int channel) {
-                        // Use ranges for coordinate generation
-                        auto coordinates = std::views::cartesian_product(
-                            std::views::iota(0uz, newHeight),
-                            std::views::iota(0uz, newWidth)
-                        );
-                        
-                        std::ranges::for_each(coordinates, [&](const auto& coord) {
-                            auto [y, x] = coord;
+                // Process channels
+                for (int channel = 0; channel < 3; ++channel) {
+                    // Process each pixel
+                    for (size_t y = 0; y < newHeight; ++y) {
+                        for (size_t x = 0; x < newWidth; ++x) {
                             const auto srcX = static_cast<size_t>(x * scaleX);
                             const auto srcY = static_cast<size_t>(y * scaleY);
                             smallerRGBImage->getChannel(channel).at(x, y) = 
                                 rgbImage->getChannel(channel).at(srcX, srcY);
-                        });
-                    });
+                        }
+                    }
+                }
                 
                 processedRGBImage = smallerRGBImage;
                 imageWidth_ = newWidth;
