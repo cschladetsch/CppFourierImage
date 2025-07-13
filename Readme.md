@@ -335,6 +335,13 @@ Simply copy your images to the `Resources/` folder and restart the application. 
    - Displays total available frequencies
    - Shows active frequency count and reconstruction quality percentage
 
+4. **Window Management**
+   - All windows can be freely moved by dragging their title bars
+   - Windows can be resized by dragging their corners or edges
+   - Close individual windows using the X button (they can be reopened)
+   - RGB Frequency Spectrum window shows all color channels overlaid on the same plot
+   - Window positions and sizes are remembered between sessions
+
 ## How It Works
 
 The application performs a 2D Discrete Fourier Transform (DFT) on RGB images using a custom Cooley-Tukey FFT implementation, processing each color channel separately. Images are converted from the spatial domain to the frequency domain, then reconstructed by selecting the top N frequency components based on magnitude.
