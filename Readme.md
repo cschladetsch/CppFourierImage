@@ -4,6 +4,8 @@ A cutting-edge C++23 application that demonstrates advanced Fourier transform co
 
 ## Demo
 
+Here's a quick demo of the app:
+
 ![Demo](/Resources/Demo.gif)
 
 ## What Actually Happens
