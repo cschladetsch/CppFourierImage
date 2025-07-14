@@ -12,6 +12,7 @@ sudo apt-get install -y \
     build-essential \
     cmake \
     git \
+    git-lfs \
     python3
 
 # Install OpenGL and windowing libraries
@@ -27,6 +28,9 @@ sudo apt-get install -y \
 
 # Install FFTW3
 sudo apt-get install -y libfftw3-dev
+
+# Install Intel TBB (Threading Building Blocks)
+sudo apt-get install -y libtbb-dev
 
 # Install image libraries
 sudo apt-get install -y \
