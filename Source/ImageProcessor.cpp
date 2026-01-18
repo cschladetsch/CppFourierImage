@@ -82,39 +82,49 @@ void ImageProcessor::applyLogScale(std::vector<Scalar>& magnitude_data) {
                    [](Scalar val) { return std::log10(1.0 + val); });
 }
 
-void ImageProcessor::applyColorMap(const std::vector<uint8_t>& grayscale, std::vector<uint8_t>& rgb_output) {
+void ImageProcessor::applyColorMap(const std::vector<uint8_t>& grayscale, std::vector<uint8_t>& rgb_output, ColorMap map) {
     rgb_output.resize(grayscale.size() * 3);
-    
+
+    if (map == ColorMap::Jet) {
+        for (size_t i = 0; i < grayscale.size(); ++i) {
+            const uint8_t val = grayscale[i];
+            const Scalar t = val / 255.0;
+
+            uint8_t r = 0, g = 0, b = 0;
+            if (t < 0.25f) {
+                g = static_cast<uint8_t>(t * 4 * 255);
+                b = 255;
+            } else if (t < 0.5f) {
+                g = 255;
+                b = static_cast<uint8_t>((1.0f - (t - 0.25f) * 4) * 255);
+            } else if (t < 0.75f) {
+                r = static_cast<uint8_t>((t - 0.5f) * 4 * 255);
+                g = 255;
+            } else {
+                r = 255;
+                g = static_cast<uint8_t>((1.0f - (t - 0.75f) * 4) * 255);
+            }
+
+            rgb_output[i * 3] = r;
+            rgb_output[i * 3 + 1] = g;
+            rgb_output[i * 3 + 2] = b;
+        }
+        return;
+    }
+
     for (size_t i = 0; i < grayscale.size(); ++i) {
         uint8_t val = grayscale[i];
-        Scalar t = val / 255.0;
-        
-        uint8_t r, g, b;
-        if (t < 0.25f) {
-            r = 0;
-            g = static_cast<uint8_t>(t * 4 * 255);
-            b = 255;
-        } else if (t < 0.5f) {
-            r = 0;
-            g = 255;
-            b = static_cast<uint8_t>((1.0f - (t - 0.25f) * 4) * 255);
-        } else if (t < 0.75f) {
-            r = static_cast<uint8_t>((t - 0.5f) * 4 * 255);
-            g = 255;
-            b = 0;
-        } else {
-            r = 255;
-            g = static_cast<uint8_t>((1.0f - (t - 0.75f) * 4) * 255);
-            b = 0;
-        }
-        
-        rgb_output[i * 3] = r;
-        rgb_output[i * 3 + 1] = g;
-        rgb_output[i * 3 + 2] = b;
+        rgb_output[i * 3] = val;
+        rgb_output[i * 3 + 1] = val;
+        rgb_output[i * 3 + 2] = val;
     }
 }
 
 ComplexImage ImageProcessor::applyGaussianBlur(const ComplexImage& input, Scalar sigma) {
+    if (sigma <= 0.0) {
+        return input;
+    }
+
     size_t width = input.getWidth();
     size_t height = input.getHeight();
     ComplexImage result(width, height);

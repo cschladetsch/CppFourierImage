@@ -153,3 +153,26 @@ TEST_F(ImageProcessorTest, ApplyColorMap) {
     EXPECT_EQ(rgb_output[13], 255);  // G for white
     EXPECT_EQ(rgb_output[14], 255);  // B for white
 }
+
+TEST_F(ImageProcessorTest, ApplyJetColorMap) {
+    std::vector<uint8_t> grayscale{0, 64, 128, 192, 255};
+    std::vector<uint8_t> rgb_output;
+
+    ImageProcessor::applyColorMap(grayscale, rgb_output, ImageProcessor::ColorMap::Jet);
+
+    ASSERT_EQ(rgb_output.size(), grayscale.size() * 3);
+    // 0 maps to blue
+    EXPECT_EQ(rgb_output[0], 0);
+    EXPECT_EQ(rgb_output[1], 0);
+    EXPECT_EQ(rgb_output[2], 255);
+
+    // mid values progress through green/yellow
+    EXPECT_EQ(rgb_output[3], 0);
+    EXPECT_EQ(rgb_output[4], 255);
+    EXPECT_LT(rgb_output[5], 255);
+
+    // white maps to red
+    EXPECT_EQ(rgb_output[12], 255);
+    EXPECT_LT(rgb_output[13], 255);
+    EXPECT_EQ(rgb_output[14], 0);
+}

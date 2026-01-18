@@ -1,5 +1,4 @@
 #include "FourierTransform.hpp"
-#include "ImageProcessor.hpp"
 #include "RgbComplexImage.hpp"
 #include <cmath>
 #include <algorithm>
@@ -13,16 +12,13 @@ FourierTransform::FourierTransform() = default;
 FourierTransform::~FourierTransform() = default;
 
 ComplexImage FourierTransform::transform2D(const ComplexImage& input, Direction direction) {
-    // Pad to power of 2 for efficient FFT
-    ComplexImage padded = ImageProcessor::padToPowerOfTwo(input);
-    fft2D(padded, direction);
-    
-    // For inverse transform, crop back to original size
-    if (direction == Direction::Inverse) {
-        return ImageProcessor::cropToOriginalSize(padded, input.getWidth(), input.getHeight());
+    if (input.getWidth() == 0 || input.getHeight() == 0) {
+        return ComplexImage(0, 0);
     }
-    
-    return padded;
+
+    ComplexImage transformed = input;
+    fft2D(transformed, direction);
+    return transformed;
 }
 
 void FourierTransform::fft2D(ComplexImage& image, Direction direction) {

@@ -1,6 +1,7 @@
 #include "ComplexImage.hpp"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 ComplexImage::ComplexImage(Scalar width, Scalar height) 
     : width_(width), height_(height), data_(static_cast<size_t>(width * height)) {}
@@ -69,9 +70,17 @@ std::vector<uint8_t> ComplexImage::getGrayscaleFromReal() const {
 }
 
 void ComplexImage::normalize() {
-    Scalar factor = 1.0 / std::sqrt(width_ * height_);
+    Scalar max_magnitude = 0.0;
+    for (const auto& c : data_) {
+        max_magnitude = std::max(max_magnitude, std::abs(c));
+    }
+
+    if (max_magnitude <= std::numeric_limits<Scalar>::epsilon()) {
+        return;
+    }
+
     for (auto& c : data_) {
-        c *= factor;
+        c /= max_magnitude;
     }
 }
 

@@ -55,6 +55,8 @@ private:
     
     void reconstructFromFrequencies();
     void reconstructRGBFromFrequencies();
+    void resetAnimationState(bool is_rgb);
+    std::vector<VisualizationLine> buildVisualizationLines(const ComplexImage& freqDomain, Scalar width, Scalar height) const;
     
     // Event handling
     EventDispatcher::HandlerId frequencyChangeHandlerId_;

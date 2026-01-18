@@ -14,6 +14,7 @@ set(SOURCE_FILES_TO_TEST
     ${CMAKE_SOURCE_DIR}/Source/ComplexImage.cpp
     ${CMAKE_SOURCE_DIR}/Source/ImageLoader.cpp
     ${CMAKE_SOURCE_DIR}/Source/FourierVisualizer.cpp
+    ${CMAKE_SOURCE_DIR}/Source/RgbComplexImage.cpp
 )
 
 add_executable(fourier_tests ${TEST_SOURCES} ${SOURCE_FILES_TO_TEST})
