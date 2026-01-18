@@ -292,21 +292,20 @@ For WSL2 users, follow the Ubuntu/Debian instructions above. Make sure you have 
 git clone https://github.com/cschladetsch/CppFourier.git
 cd CppFourier
 
-# Run the run script
+# Preferred: configure, build, and run tests in one step
+./bt
+
+##### OR
+
+# Use the legacy helper script
 ./r
 
 ##### OR
 
-# Create build directory
+# Manual build
 mkdir build && cd build
-
-# Configure
 cmake ..
-
-# Build
-make -j$(nproc)
-
-# Run tests (optional)
+cmake --build .
 ctest
 ```
 
@@ -393,6 +392,20 @@ By limiting the number of frequencies used in reconstruction, you can see how im
 - **ImageProcessor**: Parallel image processing with normalization and filtering
 - **Renderer**: OpenGL-based rendering with event-driven texture updates
 - **UIManager**: ImGui-based interface with spectrum visualization, animation, and transparency effects
+
+### Data Flow Overview
+
+```mermaid
+flowchart LR
+    Resources[Resources folder] --> Loader[ImageLoader]
+    Loader --> Processor[ImageProcessor]
+    Processor --> FFT[FourierTransform]
+    FFT --> Visualizer[FourierVisualizer]
+    Visualizer --> Renderer
+    Renderer --> UI[UIManager]
+    UI -->|events| Visualizer
+    UI -->|events| Renderer
+```
 
 ### Performance Features
 - **Parallel Execution**: Multi-core processing using `std::execution::par_unseq` for:

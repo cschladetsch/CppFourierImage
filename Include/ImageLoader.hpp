@@ -23,11 +23,11 @@ public:
     std::shared_ptr<RGBComplexImage> getRGBComplexImage() const;
     
     // Get the original RGB data (32-bit RGB)
-    const std::vector<uint32_t>& getRGBData() const { return _rgbData; }
+    const std::vector<uint32_t>& getRGBData() const { return rgb_data_; }
     
     // Get image dimensions
-    size_t getWidth() const { return _width; }
-    size_t getHeight() const { return _height; }
+    size_t getWidth() const { return width_; }
+    size_t getHeight() const { return height_; }
     
     // Get list of supported image formats
     std::vector<std::string> getSupportedFormats() const;
@@ -36,10 +36,12 @@ public:
     bool saveImage(const std::string& filepath, std::shared_ptr<ComplexImage> image) const;
     
 private:
-    std::shared_ptr<ComplexImage> _complexImage;  // For grayscale
-    std::shared_ptr<RGBComplexImage> _rgbComplexImage;  // For RGB
-    std::vector<uint32_t> _rgbData;  // 32-bit RGB format
-    size_t _width = 0;
-    size_t _height = 0;
+    void resetState();
+
+    std::shared_ptr<ComplexImage> complex_image_;  // For grayscale
+    std::shared_ptr<RGBComplexImage> rgb_complex_image_;  // For RGB
+    std::vector<uint32_t> rgb_data_;  // 32-bit RGB format
+    size_t width_ = 0;
+    size_t height_ = 0;
     
 };

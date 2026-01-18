@@ -7,6 +7,7 @@
 #include <ranges>
 #include <thread>
 #include <future>
+#include <utility>
 
 FourierTransform::FourierTransform() = default;
 FourierTransform::~FourierTransform() = default;
@@ -25,41 +26,36 @@ void FourierTransform::fft2D(ComplexImage& image, Direction direction) {
     const size_t width = image.getWidth();
     const size_t height = image.getHeight();
     
-    // Process rows using C++23 ranges
-    auto row_indices = std::views::iota(0uz, height);
-    std::for_each(row_indices.begin(), row_indices.end(),
-        [&image, width, direction, this](size_t y) {
-            std::vector<ComplexImage::Complex> row(width);
-            
-            // Use ranges to copy row data
-            auto x_range = std::views::iota(0uz, width);
-            std::ranges::transform(x_range, row.begin(),
-                [&image, y](size_t x) { return image.at(x, y); });
-            
-            fft1D(row, direction);
-            
-            // Use ranges to copy back
-            std::ranges::for_each(x_range, 
-                [&image, &row, y](size_t x) { image.at(x, y) = row[x]; });
-        });
-    
-    // Process columns using C++23 ranges
-    auto col_indices = std::views::iota(0uz, width);
-    std::for_each(col_indices.begin(), col_indices.end(),
-        [&image, height, direction, this](size_t x) {
-            std::vector<ComplexImage::Complex> col(height);
-            
-            // Use ranges to copy column data
-            auto y_range = std::views::iota(0uz, height);
-            std::ranges::transform(y_range, col.begin(),
-                [&image, x](size_t y) { return image.at(x, y); });
-            
-            fft1D(col, direction);
-            
-            // Use ranges to copy back
-            std::ranges::for_each(y_range,
-                [&image, &col, x](size_t y) { image.at(x, y) = col[y]; });
-        });
+    const auto process_axis = [&](size_t line_count, size_t line_length, auto coord_mapper) {
+        auto line_indices = std::views::iota(0uz, line_count);
+        std::for_each(line_indices.begin(), line_indices.end(),
+            [&](size_t line_idx) {
+                std::vector<ComplexImage::Complex> buffer(line_length);
+                auto positions = std::views::iota(0uz, line_length);
+
+                std::ranges::transform(positions, buffer.begin(),
+                    [&](size_t pos) {
+                        const auto [x, y] = coord_mapper(line_idx, pos);
+                        return image.at(x, y);
+                    });
+
+                fft1D(buffer, direction);
+
+                std::ranges::for_each(positions,
+                    [&](size_t pos) {
+                        const auto [x, y] = coord_mapper(line_idx, pos);
+                        image.at(x, y) = buffer[pos];
+                    });
+            });
+    };
+
+    process_axis(height, width, [](size_t line, size_t pos) {
+        return std::pair<size_t, size_t>{pos, line};
+    });
+
+    process_axis(width, height, [](size_t line, size_t pos) {
+        return std::pair<size_t, size_t>{line, pos};
+    });
 }
 
 void FourierTransform::fft1D(std::span<ComplexImage::Complex> data, Direction direction) {

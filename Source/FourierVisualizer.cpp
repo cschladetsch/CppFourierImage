@@ -7,7 +7,6 @@
 #include <execution>
 
 FourierVisualizer::FourierVisualizer() : fourier_transform_(std::make_shared<FourierTransform>()) {
-    // Subscribe to frequency change events
     frequencyChangeHandlerId_ = EventDispatcher::getInstance().subscribe<FrequencyChangeEvent>(
         [this](const FrequencyChangeEvent& event) {
             if (animation_state_.current_frequency_count != event.newFrequencyCount) {
@@ -18,21 +17,18 @@ FourierVisualizer::FourierVisualizer() : fourier_transform_(std::make_shared<Fou
 }
 
 FourierVisualizer::~FourierVisualizer() {
-    // Unsubscribe from events
     EventDispatcher::getInstance().unsubscribe<FrequencyChangeEvent>(frequencyChangeHandlerId_);
 }
 
 void FourierVisualizer::setImage(const ComplexImage& frequency_domain) {
     frequency_domain_ = frequency_domain;
     resetAnimationState(false);
-    // Initialize with an empty reconstruction
     animation_state_.reconstructed_image = ComplexImage(frequency_domain.getWidth(), frequency_domain.getHeight());
 }
 
 void FourierVisualizer::setRGBImage(const RGBComplexImage& frequency_domain) {
     rgb_frequency_domain_ = frequency_domain;
     resetAnimationState(true);
-    // Initialize with an empty RGB reconstruction
     animation_state_.reconstructed_rgb_image = RGBComplexImage(frequency_domain.getWidth(), frequency_domain.getHeight());
 }
 
@@ -107,22 +103,19 @@ RGBComplexImage FourierVisualizer::getReconstructedRGBImage() const {
 void FourierVisualizer::reconstructRGBFromFrequencies() {
     if (!fourier_transform_) return;
     
-    // Keep top frequencies for each channel
     RGBComplexImage filtered = fourier_transform_->keepTopFrequenciesRGB(rgb_frequency_domain_, 
                                                                          animation_state_.current_frequency_count);
     
-    // Inverse transform to get spatial domain
     animation_state_.reconstructed_rgb_image = fourier_transform_->transformRGB2D(filtered, 
                                                                                  FourierTransform::Direction::Inverse);
     
-    // Get active frequencies from the red channel (representative)
     animation_state_.active_frequencies = fourier_transform_->getTopFrequencyIndices(rgb_frequency_domain_.getChannel(0), 
-                                                                                     animation_state_.current_frequency_count);
+                                                                                    animation_state_.current_frequency_count);
 }
 
 std::vector<FourierVisualizer::VisualizationLine> FourierVisualizer::getVisualizationLines(Scalar width, Scalar height) const {
     if (animation_state_.is_rgb) {
-        const auto& freqDomain = rgb_frequency_domain_.getChannel(0); // Use red channel as representative
+        const auto& freqDomain = rgb_frequency_domain_.getChannel(0);
         if (freqDomain.getWidth() <= 0) {
             return {};
         }
@@ -143,35 +136,28 @@ std::vector<FourierVisualizer::VisualizationLine> FourierVisualizer::buildVisual
     const Scalar freq_width = freqDomain.getWidth();
     const Scalar freq_height = freqDomain.getHeight();
 
-    // Center coordinates in frequency domain
     const Scalar centerX = freq_width / 2.0;
     const Scalar centerY = freq_height / 2.0;
-
-    // Scale factors to convert from frequency domain to screen coordinates
+    
     const Scalar scaleX = width / freq_width;
     const Scalar scaleY = height / freq_height;
-
-    // Get active frequencies and create visualization lines using C++23 ranges
+    
     auto visualizationLines = animation_state_.active_frequencies 
         | std::views::transform([&](const auto& freq_pair) {
             const auto [u, v] = freq_pair;
 
-            // Convert frequency coordinates to screen coordinates
             Scalar screenX = (static_cast<Scalar>(u) + centerX) * scaleX;
             Scalar screenY = (static_cast<Scalar>(v) + centerY) * scaleY;
 
-            // Clamp to screen bounds to ensure visibility
             screenX = std::clamp(screenX, Scalar(0.0), width);
             screenY = std::clamp(screenY, Scalar(0.0), height);
 
-            // Get the complex value at this frequency
             const auto complex_val = freqDomain.at(u, v);
             const float magnitude = std::abs(complex_val);
             const float phase = std::arg(complex_val);
 
-            // Create a line from center to the frequency point
             return VisualizationLine{
-                .x1 = width * 0.5,  // Center of screen
+                .x1 = width * 0.5,
                 .y1 = height * 0.5,
                 .x2 = screenX,
                 .y2 = screenY,
