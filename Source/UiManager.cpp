@@ -1,9 +1,3 @@
-#include "UiManager.hpp"
-#include "ImageLoader.hpp"
-#include "FourierTransform.hpp"
-#include "FourierVisualizer.hpp"
-#include "Renderer.hpp"
-#include "RgbComplexImage.hpp"
 #include <imgui.h>
 #include <iostream>
 #include <algorithm>
@@ -13,8 +7,16 @@
 #include <string_view>
 #include <array>
 #include <execution>
-#include <algorithm>
 #include <numeric>
+
+#include "UiManager.hpp"
+#include "ImageLoader.hpp"
+#include "FourierTransform.hpp"
+#include "FourierVisualizer.hpp"
+#include "Renderer.hpp"
+#include "RgbComplexImage.hpp"
+
+constexpr size_t MaxFreq = 100000uz;
 
 UIManager::UIManager(std::shared_ptr<ImageLoader> imageLoader,
                      std::shared_ptr<FourierTransform> fourierTransform,
@@ -26,9 +28,9 @@ UIManager::UIManager(std::shared_ptr<ImageLoader> imageLoader,
       visualizer_(visualizer),
       renderer_(renderer),
       frequencyCount_(100uz),
-      maxFrequencies_(50000uz),
+      maxFrequencies_(MaxFreq), 
       maxImageSize_(maxImageSize) {
-    
+
     // Subscribe to frequency change events
     frequencyChangeHandlerId_ = EventDispatcher::getInstance().subscribe<FrequencyChangeEvent>(
         [this](const FrequencyChangeEvent&) {

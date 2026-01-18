@@ -1,10 +1,11 @@
-#include "FourierVisualizer.hpp"
-#include "FourierTransform.hpp"
 #include <algorithm>
 #include <iostream>
 #include <cmath>
 #include <ranges>
 #include <execution>
+
+#include "FourierVisualizer.hpp"
+#include "FourierTransform.hpp"
 
 FourierVisualizer::FourierVisualizer() : fourier_transform_(std::make_shared<FourierTransform>()) {
     frequencyChangeHandlerId_ = EventDispatcher::getInstance().subscribe<FrequencyChangeEvent>(

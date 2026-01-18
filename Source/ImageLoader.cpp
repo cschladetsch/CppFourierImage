@@ -1,10 +1,11 @@
-#include "ImageLoader.hpp"
-#include "ComplexImage.hpp"
-#include "RgbComplexImage.hpp"
 #include <CImg.h>
 #include <iostream>
 #include <algorithm>
 #include <ranges>
+
+#include "ImageLoader.hpp"
+#include "ComplexImage.hpp"
+#include "RgbComplexImage.hpp"
 
 using namespace cimg_library;
 

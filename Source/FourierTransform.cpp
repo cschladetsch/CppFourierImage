@@ -1,5 +1,3 @@
-#include "FourierTransform.hpp"
-#include "RgbComplexImage.hpp"
 #include <cmath>
 #include <algorithm>
 #include <numeric>
@@ -8,6 +6,9 @@
 #include <thread>
 #include <future>
 #include <utility>
+
+#include "FourierTransform.hpp"
+#include "RgbComplexImage.hpp"
 
 FourierTransform::FourierTransform() = default;
 FourierTransform::~FourierTransform() = default;
