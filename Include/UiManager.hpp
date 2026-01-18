@@ -53,7 +53,6 @@ private:
     size_t maxFrequencies_;
     std::shared_ptr<ComplexImage> transformedImage_;
     std::shared_ptr<RGBComplexImage> transformedRGBImage_;
-    bool useRGB_ = true;  // Default to RGB processing
 
 
     
