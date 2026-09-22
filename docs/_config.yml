@@ -1,0 +1,4 @@
+title: CppFourier
+description: A C++23 application demonstrating Fourier transform concepts through interactive image analysis: 2D Discrete Fourier Transform decomposition on RGB images, visualizing reconstruction from frequency components.
+theme: null
+markdown: kramdown

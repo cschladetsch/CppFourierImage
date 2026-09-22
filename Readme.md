@@ -1,5 +1,8 @@
 # CppFourier - Modern C++23 Fourier Image Analyzer
 
+📖 [Docs & diagrams](https://cschladetsch.github.io/CppFourierImage/)
+
+
 A cutting-edge C++23 application that demonstrates advanced Fourier transform concepts through interactive image analysis. This tool performs 2D Discrete Fourier Transform (DFT) decomposition on RGB images, allowing users to visualize how complex images can be reconstructed from sinusoidal frequency components.
 
 ## Demo
