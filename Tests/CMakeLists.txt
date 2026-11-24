@@ -47,8 +47,8 @@ endif()
 
 # CImg definitions for tests
 target_compile_definitions(fourier_tests PRIVATE cimg_display=0)
-if(MSVC)
-    # MSVC only defines M_PI and friends when this is set
+if(WIN32)
+    # The Windows C runtime (used by MSVC and clang alike) only defines M_PI when this is set
     target_compile_definitions(fourier_tests PRIVATE _USE_MATH_DEFINES)
 endif()
 if(PNG_FOUND)

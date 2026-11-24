@@ -265,16 +265,15 @@ return VisualizationLine{
 - CMake 3.20 or higher
 - OpenGL 3.3+
 - Intel TBB (Threading Building Blocks), optional: libstdc++ (GCC, or Clang on Linux) uses it to run the `std::execution` algorithms in parallel, and runs them sequentially without it. MSVC does not need it.
-- PNG and JPEG libraries (optional but recommended: CImg uses them to load `.png`/`.jpg` files, including the bundled images)
+- Git LFS, to download the images in `Resources/` (run `git lfs pull` if they are tiny text files after cloning)
 
-GLFW, Dear ImGui and CImg are downloaded automatically by CMake. The FFT is a custom Cooley-Tukey implementation, so no FFT library is needed.
+GLFW, Dear ImGui, CImg and stb_image are downloaded automatically by CMake. stb_image decodes JPEG and PNG, so no image libraries need to be installed. The FFT is a custom Cooley-Tukey implementation, so no FFT library is needed.
 
 ### Ubuntu/Debian Installation
 
 ```bash
 sudo apt-get update
-sudo apt-get install build-essential cmake git
-sudo apt-get install libpng-dev libjpeg-dev
+sudo apt-get install build-essential cmake git git-lfs
 sudo apt-get install libtbb-dev
 sudo apt-get install libgl1-mesa-dev libglu1-mesa-dev
 sudo apt-get install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
@@ -283,8 +282,7 @@ sudo apt-get install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 ### Fedora Installation
 
 ```bash
-sudo dnf install gcc-c++ cmake git
-sudo dnf install libpng-devel libjpeg-devel
+sudo dnf install gcc-c++ cmake git git-lfs
 sudo dnf install tbb-devel
 sudo dnf install mesa-libGL-devel mesa-libGLU-devel
 sudo dnf install libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel
@@ -334,7 +332,7 @@ You can add your own images to analyze by placing them in the `Resources/` folde
 - JPEG (.jpg, .jpeg)
 - PNG (.png)
 - BMP (.bmp)
-- TIFF (.tiff, .tif)
+- TIFF (.tiff, .tif), only if ImageMagick is installed (CImg hands TIFF files to it)
 
 Simply copy your images to the `Resources/` folder and restart the application. Your images will appear in the image selector within the application's control panel.
 
@@ -352,7 +350,7 @@ Simply copy your images to the `Resources/` folder and restart the application. 
 
 2. **Image Selection**
    - Radio buttons to select from available images in the Resources/ folder
-   - Supports PNG, JPEG, BMP, TIFF formats
+   - Supports PNG, JPEG, BMP and (with ImageMagick) TIFF formats
    - Auto-loads first available image on startup
 
 3. **Frequency Control**
@@ -395,7 +393,7 @@ By limiting the number of frequencies used in reconstruction, you can see how im
 ### Core Components
 - **Types.hpp**: Unified scalar type system with configurable precision (`using Scalar = double`)
 - **EventSystem.hpp**: Observer pattern implementation for loose coupling between components
-- **ImageLoader**: Loads RGB images using CImg library with multi-format support
+- **ImageLoader**: Decodes RGB images with stb_image, falling back to CImg for other formats
 - **ComplexImage**: Represents grayscale images in complex number format with Scalar precision
 - **RGBComplexImage**: Represents RGB images with separate complex channels
 - **FourierTransform**: Performs forward and inverse FFT using custom Cooley-Tukey implementation
@@ -482,6 +480,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [Dear ImGui](https://github.com/ocornut/imgui) - Immediate mode GUI library
 - [CImg](http://cimg.eu/) - C++ image processing library
+- [stb_image](https://github.com/nothings/stb) - Public-domain image decoder
 - [GLFW](https://www.glfw.org/) - OpenGL window management
 - [Google Test](https://github.com/google/googletest) - Unit testing framework
 

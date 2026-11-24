@@ -29,9 +29,6 @@ Install-Packages libgl1-mesa-dev, libglu1-mesa-dev, libx11-dev, libxi-dev, libxr
 # Install Intel TBB (Threading Building Blocks)
 Install-Packages libtbb-dev
 
-# Install image libraries
-Install-Packages libpng-dev, libjpeg-dev
-
 # Install GTest
 Install-Packages libgtest-dev
 

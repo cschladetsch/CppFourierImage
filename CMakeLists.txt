@@ -67,6 +67,20 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(glfw imgui cimg)
 
+# stb_image (single public-domain header) decodes JPEG, PNG, BMP, GIF, etc.
+# so no system image libraries are needed. Pinned to a commit and checked by hash.
+set(STB_COMMIT 6b5799bae8a1fe3792691ef4b72ae26434c3e799)
+set(STB_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/stb/include)
+if(NOT EXISTS ${STB_INCLUDE_DIR}/stb_image.h)
+    file(DOWNLOAD
+        https://raw.githubusercontent.com/nothings/stb/${STB_COMMIT}/stb_image.h
+        ${STB_INCLUDE_DIR}/stb_image.h
+        EXPECTED_HASH SHA256=dfc2aadda6295f67f677587773f25e5bf8c8ad427ed0db7c518525c91e72e020
+        TLS_VERIFY ON
+    )
+endif()
+include_directories(SYSTEM ${STB_INCLUDE_DIR})
+
 # Use local GLAD files
 set(GLAD_DIR ${CMAKE_SOURCE_DIR}/External)
 add_library(glad STATIC ${GLAD_DIR}/glad/glad.c)
