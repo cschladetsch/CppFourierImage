@@ -264,7 +264,7 @@ return VisualizationLine{
 - C++23 compiler whose standard library provides `std::views::cartesian_product` and `std::views::zip` (GCC 13+, Clang using libstdc++ 13+, or MSVC 2022 17.6+)
 - CMake 3.20 or higher
 - OpenGL 3.3+
-- Intel TBB (Threading Building Blocks) for parallel execution
+- Intel TBB (Threading Building Blocks), optional: libstdc++ (GCC, or Clang on Linux) uses it to run the `std::execution` algorithms in parallel, and runs them sequentially without it. MSVC does not need it.
 - PNG and JPEG libraries (optional but recommended: CImg uses them to load `.png`/`.jpg` files, including the bundled images)
 
 GLFW, Dear ImGui and CImg are downloaded automatically by CMake. The FFT is a custom Cooley-Tukey implementation, so no FFT library is needed.

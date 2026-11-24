@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Visual Studio: stop vcpkg's user-wide MSBuild integration ("vcpkg integrate install")
+# from adding its headers and libraries to these projects. Dependencies come from
+# FetchContent, and mixing in vcpkg's copies (e.g. its gmock.dll) crashes the tests.
+set(CMAKE_VS_GLOBALS "VcpkgEnabled=false")
+
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/Bin)
@@ -16,7 +21,13 @@ include(FetchContent)
 # Find required packages
 find_package(OpenGL REQUIRED)
 find_package(Threads REQUIRED)
-find_package(TBB REQUIRED)
+# Intel TBB is only used as the std::execution backend for libstdc++.
+# MSVC's standard library does not need it; without it libstdc++ runs the
+# parallel algorithms sequentially.
+find_package(TBB QUIET)
+if(NOT TBB_FOUND AND NOT MSVC)
+    message(WARNING "TBB not found: std::execution algorithms will run sequentially")
+endif()
 
 # Find image libraries for CImg
 find_package(PNG)
@@ -48,6 +59,11 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
     FETCHCONTENT_UPDATES_DISCONNECTED TRUE
 )
+
+# Only the GLFW library is needed, not its examples, tests or docs
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(glfw imgui cimg)
 
@@ -120,15 +136,21 @@ set(HEADERS
 
 # Main executable
 add_executable(fourier_viewer ${SOURCES} ${HEADERS} ${IMGUI_SOURCES})
+# glad provides the GL declarations, so GLFW must not include the system GL header
+target_compile_definitions(fourier_viewer PRIVATE GLFW_INCLUDE_NONE)
 target_link_libraries(fourier_viewer 
     glfw
     glad
     ${OPENGL_LIBRARIES}
     Threads::Threads
-    TBB::tbb
-    m
     ${CMAKE_DL_LIBS}
 )
+if(TBB_FOUND)
+    target_link_libraries(fourier_viewer TBB::tbb)
+endif()
+if(UNIX)
+    target_link_libraries(fourier_viewer m)
+endif()
 if(PNG_FOUND)
     target_link_libraries(fourier_viewer ${PNG_LIBRARIES})
 endif()

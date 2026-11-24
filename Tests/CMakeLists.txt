@@ -30,8 +30,13 @@ target_link_libraries(fourier_tests
     GTest::gtest
     GTest::gtest_main
     Threads::Threads
-    m
 )
+if(TBB_FOUND)
+    target_link_libraries(fourier_tests TBB::tbb)
+endif()
+if(UNIX)
+    target_link_libraries(fourier_tests m)
+endif()
 
 if(PNG_FOUND)
     target_link_libraries(fourier_tests ${PNG_LIBRARIES})
@@ -42,6 +47,10 @@ endif()
 
 # CImg definitions for tests
 target_compile_definitions(fourier_tests PRIVATE cimg_display=0)
+if(MSVC)
+    # MSVC only defines M_PI and friends when this is set
+    target_compile_definitions(fourier_tests PRIVATE _USE_MATH_DEFINES)
+endif()
 if(PNG_FOUND)
     target_compile_definitions(fourier_tests PRIVATE cimg_use_png)
 endif()
