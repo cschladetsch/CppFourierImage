@@ -125,7 +125,14 @@ int main(int argc, char* argv[]) {
         glfwSwapBuffers(window);
     }
 
-    // Cleanup
+    // Cleanup. Destroy our components first: the Renderer deletes GL objects,
+    // which needs the GL context that glfwTerminate() destroys.
+    uiManager.reset();
+    renderer.reset();
+    visualizer.reset();
+    fourierTransform.reset();
+    imageLoader.reset();
+
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

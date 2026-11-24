@@ -191,8 +191,11 @@ void Renderer::updateTextures() {
     glBindTexture(GL_TEXTURE_2D, originalTexture_);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, originalData.data());
     
-    // Update Fourier reconstruction texture
-    if (reconstructed_) {
+    // Update Fourier reconstruction texture. Skip it if the reconstruction
+    // is still for a previous image of a different size.
+    if (reconstructed_ &&
+        static_cast<int>(reconstructed_->getWidth()) == width &&
+        static_cast<int>(reconstructed_->getHeight()) == height) {
         std::vector<unsigned char> fourierData(width * height * 4);
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
@@ -234,8 +237,11 @@ void Renderer::updateRGBTextures() {
     glBindTexture(GL_TEXTURE_2D, originalTexture_);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, originalData.data());
     
-    // Update RGB Fourier reconstruction texture
-    if (rgbReconstructed_) {
+    // Update RGB Fourier reconstruction texture. Skip it if the reconstruction
+    // is still for a previous image of a different size.
+    if (rgbReconstructed_ &&
+        static_cast<int>(rgbReconstructed_->getWidth()) == width &&
+        static_cast<int>(rgbReconstructed_->getHeight()) == height) {
         std::vector<uint32_t> reconstructedRGB = rgbReconstructed_->toRGB();
         std::vector<unsigned char> fourierData(width * height * 4);
         
@@ -357,6 +363,7 @@ void Renderer::renderImage(GLuint texture, float x, float y, float width, float 
 
 void Renderer::setImage(std::shared_ptr<ComplexImage> image) {
     image_ = image;
+    reconstructed_.reset();  // belongs to the previous image
     isRGB_ = false;
     if (image) {
         imageWidth_ = image->getWidth();
@@ -366,6 +373,7 @@ void Renderer::setImage(std::shared_ptr<ComplexImage> image) {
 
 void Renderer::setRGBImage(std::shared_ptr<RGBComplexImage> image) {
     rgbImage_ = image;
+    rgbReconstructed_.reset();  // belongs to the previous image
     isRGB_ = true;
     if (image) {
         imageWidth_ = image->getWidth();
