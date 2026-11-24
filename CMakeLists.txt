@@ -18,13 +18,6 @@ find_package(OpenGL REQUIRED)
 find_package(Threads REQUIRED)
 find_package(TBB REQUIRED)
 
-# Find FFTW3 for Fourier transforms
-find_library(FFTW3_LIBRARY fftw3)
-find_path(FFTW3_INCLUDE_DIR fftw3.h)
-if(NOT FFTW3_LIBRARY OR NOT FFTW3_INCLUDE_DIR)
-    message(WARNING "FFTW3 not found. Install libfftw3-dev")
-endif()
-
 # Find image libraries for CImg
 find_package(PNG)
 find_package(JPEG)
@@ -93,9 +86,6 @@ include_directories(
     ${cimg_SOURCE_DIR}
     Include
 )
-if(FFTW3_INCLUDE_DIR)
-    include_directories(${FFTW3_INCLUDE_DIR})
-endif()
 if(PNG_FOUND)
     include_directories(${PNG_INCLUDE_DIRS})
 endif()
@@ -134,7 +124,6 @@ target_link_libraries(fourier_viewer
     glfw
     glad
     ${OPENGL_LIBRARIES}
-    ${FFTW3_LIBRARY}
     Threads::Threads
     TBB::tbb
     m

@@ -68,28 +68,33 @@ for (const auto& entry : std::filesystem::directory_iterator(resourcesPath)) {
 std::sort(imageFiles.begin(), imageFiles.end());
 ```
 
-**After (Modern C++23):**
+**After (as in `Source/UiManager.cpp`):**
 ```cpp
-// New approach: declarative pipeline with ranges
-auto imageFiles = std::filesystem::directory_iterator(resourcesPath)
-    | std::views::filter([](const auto& entry) { return entry.is_regular_file(); })
-    | std::views::transform([](const auto& entry) { return entry.path(); })
-    | std::views::filter([&supportedExtensions](const auto& path) {
+// Range algorithms and a constexpr extension table
+constexpr std::array<std::string_view, 6> supportedExtensions{
+    ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"
+};
+
+std::vector<std::string> imageFiles;
+for (const auto& entry : std::filesystem::directory_iterator(resourcesPath)) {
+    if (entry.is_regular_file()) {
+        auto path = entry.path();
         auto extension = path.extension().string();
         std::ranges::transform(extension, extension.begin(), ::tolower);
-        return std::ranges::find(supportedExtensions, extension) != supportedExtensions.end();
-    })
-    | std::views::transform([](const auto& path) { return path.string(); })
-    | std::ranges::to<std::vector>();
+
+        if (std::ranges::find(supportedExtensions, extension) != supportedExtensions.end()) {
+            imageFiles.push_back(path.string());
+        }
+    }
+}
 
 std::ranges::sort(imageFiles);
 ```
 
 **Benefits:**
-- **50% fewer lines of code**
-- **Zero intermediate allocations** with lazy views
-- **Self-documenting** functional pipeline
-- **Composable** operations that can be easily modified
+- **No hand-written inner loop**: `std::ranges::find` replaces the manual extension search
+- **No iterator pairs**: `std::ranges::transform` and `std::ranges::sort` take the container directly
+- **Compile-time extension table** via a `constexpr std::array`
 
 ### Coordinate Generation with Cartesian Products
 
@@ -256,12 +261,13 @@ return VisualizationLine{
 
 ### System Dependencies
 
-- C++23 compatible compiler (GCC 12+, Clang 15+, or MSVC 2022+)
+- C++23 compiler whose standard library provides `std::views::cartesian_product` and `std::views::zip` (GCC 13+, Clang using libstdc++ 13+, or MSVC 2022 17.6+)
 - CMake 3.20 or higher
 - OpenGL 3.3+
-- PNG and JPEG libraries (for image format support)
 - Intel TBB (Threading Building Blocks) for parallel execution
-- FFTW3 library for Fourier transforms
+- PNG and JPEG libraries (optional but recommended: CImg uses them to load `.png`/`.jpg` files, including the bundled images)
+
+GLFW, Dear ImGui and CImg are downloaded automatically by CMake. The FFT is a custom Cooley-Tukey implementation, so no FFT library is needed.
 
 ### Ubuntu/Debian Installation
 
@@ -269,7 +275,7 @@ return VisualizationLine{
 sudo apt-get update
 sudo apt-get install build-essential cmake git
 sudo apt-get install libpng-dev libjpeg-dev
-sudo apt-get install libfftw3-dev libtbb-dev
+sudo apt-get install libtbb-dev
 sudo apt-get install libgl1-mesa-dev libglu1-mesa-dev
 sudo apt-get install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 ```
@@ -279,7 +285,7 @@ sudo apt-get install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 ```bash
 sudo dnf install gcc-c++ cmake git
 sudo dnf install libpng-devel libjpeg-devel
-sudo dnf install fftw3-devel tbb-devel
+sudo dnf install tbb-devel
 sudo dnf install mesa-libGL-devel mesa-libGLU-devel
 sudo dnf install libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel
 ```
@@ -290,24 +296,26 @@ For WSL2 users, follow the Ubuntu/Debian instructions above. Make sure you have 
 
 ## Building
 
+The helper scripts are PowerShell 7 (`pwsh`) scripts. On Linux, install PowerShell 7 to use them. `./install_deps.ps1` installs the Ubuntu/Debian packages listed above.
+
 ```bash
 # Clone the repository
-git clone https://github.com/cschladetsch/CppFourier.git
-cd CppFourier
+git clone https://github.com/cschladetsch/CppFourierImage.git
+cd CppFourierImage
 
 # Preferred: configure, build, and run tests in one step
-./bt
+./bt.ps1
 
 ##### OR
 
-# Use the legacy helper script
-./r
+# Build with ./b.ps1 (Ninja + clang++ by default), then run the app
+./r.ps1
 
 ##### OR
 
 # Manual build
 mkdir build && cd build
-cmake ..
+cmake .. -DBUILD_TESTS=ON
 cmake --build .
 ctest
 ```
@@ -422,30 +430,14 @@ flowchart LR
 
 ## Performance: Float vs Double Precision
 
-The unified `Scalar` type system allows easy switching between float and double precision. Benchmark results reveal interesting performance characteristics:
+The unified `Scalar` type system allows easy switching between float and double precision.
 
-### Benchmark Results (1024-point FFT, 1000 iterations)
+The repository does not include a benchmark, so no float vs double timings are given here. To compare them on your own machine, change `Scalar` (see below), rebuild, and time the transform.
 
-| Metric | Float | Double | Difference |
-|--------|-------|---------|------------|
-| **Average Time** | 14.61 μs | 13.79 μs | Double is 5.6% faster |
-| **Throughput** | 70.08 M samples/s | 74.28 M samples/s | Double is 6% faster |
-| **Memory Usage** | 8 KB | 16 KB | Double uses 2x memory |
+What can be stated without measuring:
 
-### Key Findings
-
-1. **Counter-intuitive Performance**: Double precision is actually **faster** than float for FFT operations
-   - Modern x86-64 CPUs are optimized for 64-bit operations
-   - SSE/AVX vector instructions work efficiently with doubles
-   - Better numerical stability reduces computational corrections
-
-2. **Memory Trade-off**: Double uses exactly 2x the memory
-   - Critical for large datasets or memory-constrained systems
-   - Float advantage increases with dataset size due to cache effects
-
-3. **Precision Benefits**: Double provides significantly better numerical accuracy
-   - Important for scientific computing and signal processing
-   - Reduces accumulation of rounding errors in iterative algorithms
+- **Memory**: `double` uses twice the memory of `float`. A 1024-point complex buffer takes 8 KB with `float` and 16 KB with `double`.
+- **Precision**: `double` is more accurate and accumulates less rounding error.
 
 ### Switching Precision
 
@@ -473,9 +465,11 @@ using Scalar = float;
 
 ## Testing
 
-The project includes comprehensive unit tests using Google Test framework:
+The project includes unit tests using the Google Test framework. Tests are only built with `BUILD_TESTS=ON`, which `./bt.ps1` sets for you:
 
 ```bash
+cmake -S . -B build -DBUILD_TESTS=ON
+cmake --build build
 cd build
 ctest --verbose
 ```

@@ -24,9 +24,6 @@ target_include_directories(fourier_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/Include
     ${cimg_SOURCE_DIR}
 )
-if(FFTW3_INCLUDE_DIR)
-    target_include_directories(fourier_tests PRIVATE ${FFTW3_INCLUDE_DIR})
-endif()
 
 # Link libraries
 target_link_libraries(fourier_tests 
@@ -35,10 +32,6 @@ target_link_libraries(fourier_tests
     Threads::Threads
     m
 )
-
-if(FFTW3_LIBRARY)
-    target_link_libraries(fourier_tests ${FFTW3_LIBRARY})
-endif()
 
 if(PNG_FOUND)
     target_link_libraries(fourier_tests ${PNG_LIBRARIES})
